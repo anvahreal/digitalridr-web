@@ -57,20 +57,73 @@ const UserDashboard = () => {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [actionType, setActionType] = useState<"manage" | "receipt" | null>(null);
 
-  // Profile Form State
   const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [phone, setPhone] = useState("");
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
+  // Settings State
+  const [newPassword, setNewPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [smsNotifications, setSmsNotifications] = useState(false);
+
   useEffect(() => {
-    if (profile?.full_name) {
-      setFullName(profile.full_name);
+    const fetchNotificationSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata) {
+        if (user.user_metadata.email_notifications !== undefined) {
+          setEmailNotifications(user.user_metadata.email_notifications);
+        }
+        if (user.user_metadata.sms_notifications !== undefined) {
+          setSmsNotifications(user.user_metadata.sms_notifications);
+        }
+      }
+    };
+    fetchNotificationSettings();
+  }, []);
+
+  const handleEmailToggle = async () => {
+    const newVal = !emailNotifications;
+    setEmailNotifications(newVal);
+    const { error } = await supabase.auth.updateUser({ data: { email_notifications: newVal } });
+    if (error) {
+      setEmailNotifications(!newVal);
+      toast.error("Failed to update preference.");
+    } else {
+      toast.success(`Email notifications ${newVal ? 'enabled' : 'disabled'}`);
+    }
+  };
+
+  const handleSmsToggle = async () => {
+    const newVal = !smsNotifications;
+    setSmsNotifications(newVal);
+    const { error } = await supabase.auth.updateUser({ data: { sms_notifications: newVal } });
+    if (error) {
+      setSmsNotifications(!newVal);
+      toast.error("Failed to update preference.");
+    } else {
+      toast.success(`SMS notifications ${newVal ? 'enabled' : 'disabled'}`);
+    }
+  };
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || "");
+      setDob(profile.date_of_birth || "");
+      setPhone(profile.phone_number || "");
     }
   }, [profile]);
 
   const handleProfileUpdate = async () => {
     setUpdatingProfile(true);
     try {
-      await updateProfile({ full_name: fullName });
+      await updateProfile({
+        full_name: fullName,
+        date_of_birth: dob,
+        phone_number: phone
+      });
       toast.success("Profile updated successfully");
     } catch (error: any) {
       console.error("Profile update error:", error);
@@ -102,6 +155,28 @@ const UserDashboard = () => {
     await supabase.auth.signOut();
     navigate('/auth');
   }
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Password updated successfully");
+      setPasswordDialogOpen(false);
+      setNewPassword("");
+    } catch (error: any) {
+      console.error("Password update error:", error);
+      toast.error(error.message || "Failed to update password.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   const handleManageBooking = (booking: any) => {
     setSelectedBooking(booking);
@@ -428,7 +503,9 @@ const UserDashboard = () => {
                 <Card className="border-none shadow-sm rounded-3xl bg-card p-6 md:p-8 animate-in fade-in zoom-in-95">
                   <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8 text-center md:text-left">
                     <div className="h-24 w-24 bg-orange-100 dark:bg-orange-900/20 rounded-3xl flex items-center justify-center overflow-hidden shrink-0">
-                      {profile?.avatar_url ? (
+                      {profile?.verification_status === 'verified' && profile?.selfie_url ? (
+                        <img src={profile.selfie_url} alt="Profile" className="w-full h-full object-cover" />
+                      ) : profile?.avatar_url ? (
                         <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
                         <User className="h-12 w-12 text-[#F48221]" />
@@ -474,6 +551,29 @@ const UserDashboard = () => {
                           className="bg-muted/50 border-none h-12 rounded-xl text-muted-foreground cursor-not-allowed"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                          Date of Birth
+                        </Label>
+                        <Input
+                          type="date"
+                          value={dob}
+                          onChange={(e) => setDob(e.target.value)}
+                          className="bg-muted/50 border-none h-12 rounded-xl text-foreground"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                          Phone Number
+                        </Label>
+                        <Input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="bg-muted/50 border-none h-12 rounded-xl text-foreground"
+                          placeholder="+234..."
+                        />
+                      </div>
                     </div>
                     <div className="pt-4">
                       <Button
@@ -501,8 +601,11 @@ const UserDashboard = () => {
                           <p className="font-bold text-foreground">Email Notifications</p>
                           <p className="text-xs text-muted-foreground">Receive emails about your bookings and account activity.</p>
                         </div>
-                        <div className="h-6 w-11 bg-emerald-500 rounded-full relative cursor-pointer">
-                          <div className="h-5 w-5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm" />
+                        <div
+                          className={cn("h-6 w-11 rounded-full relative cursor-pointer transition-colors", emailNotifications ? "bg-emerald-500" : "bg-muted")}
+                          onClick={handleEmailToggle}
+                        >
+                          <div className={cn("h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all animate-in zoom-in slide-in-from-left-0", emailNotifications ? "right-0.5" : "left-0.5")} />
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -510,8 +613,11 @@ const UserDashboard = () => {
                           <p className="font-bold text-foreground">SMS Notifications</p>
                           <p className="text-xs text-muted-foreground">Receive text messages for urgent updates.</p>
                         </div>
-                        <div className="h-6 w-11 bg-muted rounded-full relative cursor-pointer">
-                          <div className="h-5 w-5 bg-white rounded-full absolute top-0.5 left-0.5 shadow-sm" />
+                        <div
+                          className={cn("h-6 w-11 rounded-full relative cursor-pointer transition-colors", smsNotifications ? "bg-emerald-500" : "bg-muted")}
+                          onClick={handleSmsToggle}
+                        >
+                          <div className={cn("h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all", smsNotifications ? "right-0.5" : "left-0.5")} />
                         </div>
                       </div>
                     </div>
@@ -522,19 +628,67 @@ const UserDashboard = () => {
                       <Shield className="h-5 w-5 text-[#F48221]" /> Security
                     </h2>
                     <div className="space-y-6">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-4">
                         <div>
                           <p className="font-bold text-foreground">Change Password</p>
                           <p className="text-xs text-muted-foreground">Update your password regularly to keep your account safe.</p>
                         </div>
-                        <Button variant="outline" className="rounded-xl border-border font-bold">Update</Button>
+                        <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="rounded-xl border-border font-bold">Update</Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[425px] rounded-3xl p-6">
+                            <form onSubmit={handlePasswordUpdate}>
+                              <div className="mb-6">
+                                <h3 className="text-lg font-black text-foreground mb-2">Update Password</h3>
+                                <p className="text-sm text-muted-foreground">Enter your new password below. It must be at least 6 characters long.</p>
+                              </div>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">New Password</Label>
+                                  <Input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-12 rounded-xl bg-muted/50 border-none"
+                                    required
+                                    minLength={6}
+                                  />
+                                </div>
+                                <Button
+                                  type="submit"
+                                  disabled={isUpdatingPassword}
+                                  className="w-full h-12 rounded-xl font-bold bg-[#F48221] hover:bg-orange-600 text-white"
+                                >
+                                  {isUpdatingPassword ? <LoadingSpinner className="h-5 w-5 text-white" /> : "Save New Password"}
+                                </Button>
+                              </div>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-4">
                         <div>
                           <p className="font-bold text-red-500">Delete Account</p>
                           <p className="text-xs text-muted-foreground">Permanently delete your account and data.</p>
                         </div>
-                        <Button variant="ghost" className="rounded-xl text-red-500 font-bold hover:bg-red-500/10">Delete</Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => toast.error("Account deletion requires contacting support for safety.", {
+                            action: {
+                              label: 'Contact Support', onClick: async () => {
+                                try {
+                                  const chatId = await contactSupport();
+                                  navigate('/messages', { state: { selectedChatId: chatId } });
+                                } catch (e: any) { toast.error(e.message) }
+                              }
+                            }
+                          })}
+                          className="rounded-xl text-red-500 font-bold hover:bg-red-500/10"
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   </Card>

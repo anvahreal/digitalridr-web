@@ -245,8 +245,6 @@ const Checkout = () => {
         check_out: checkOut.toISOString(),
         total_price: total,
         guests: guests,
-        total_price: total,
-        guests: guests,
         status: 'pending',
         security_deposit: securityDeposit
       });

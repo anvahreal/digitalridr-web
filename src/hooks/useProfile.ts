@@ -6,6 +6,9 @@ interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  selfie_url?: string | null;
+  date_of_birth?: string | null;
+  phone_number?: string | null;
   is_host: boolean;
   host_status: 'pending' | 'approved' | 'rejected' | 'none';
   verification_status: 'unverified' | 'pending' | 'verified' | 'rejected';
@@ -44,7 +47,7 @@ export function useProfile() {
 
           const { data, error } = await supabase
             .from('profiles')
-            .select('id, full_name, avatar_url, website, is_host, host_status, verification_status, is_admin, updated_at')
+            .select('id, full_name, avatar_url, selfie_url, date_of_birth, phone_number, website, is_host, host_status, verification_status, is_admin, updated_at')
             .eq('id', user.id)
             .single();
 

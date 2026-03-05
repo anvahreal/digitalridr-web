@@ -10,12 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Home, MessageSquare, Wallet, Plus, Star,
   TrendingUp, Calendar, MapPin, Settings,
-  ChevronRight, LayoutDashboard, AlertCircle, Menu, X, Camera, ShieldCheck, Clock
+  ChevronRight, LayoutDashboard, AlertCircle, Menu, X, Camera, ShieldCheck, Clock,
+  User, Bell, Lock, Shield, Eye, EyeOff
 } from "lucide-react";
 import { formatNaira } from "@/lib/utils";
 import { useHostBookings } from "@/hooks/useHostBookings";
 import { useListings } from "@/hooks/useListings";
 import { differenceInDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 
 // Sub-Components
@@ -33,7 +35,116 @@ const HostDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [showSidebar, setShowSidebar] = useState(true);
-  const { user, profile, loading } = useProfile();
+  const { user, profile, loading, updateProfile } = useProfile();
+
+  // Profile Form State
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [phone, setPhone] = useState("");
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  // Settings State
+  const [newPassword, setNewPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [smsNotifications, setSmsNotifications] = useState(false);
+
+  useEffect(() => {
+    const fetchNotificationSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata) {
+        if (user.user_metadata.email_notifications !== undefined) {
+          setEmailNotifications(user.user_metadata.email_notifications);
+        }
+        if (user.user_metadata.sms_notifications !== undefined) {
+          setSmsNotifications(user.user_metadata.sms_notifications);
+        }
+      }
+    };
+    fetchNotificationSettings();
+  }, []);
+
+  const handleEmailToggle = async () => {
+    const newVal = !emailNotifications;
+    setEmailNotifications(newVal);
+    const { error } = await supabase.auth.updateUser({ data: { email_notifications: newVal } });
+    if (error) {
+      setEmailNotifications(!newVal);
+      toast.error("Failed to update preference.");
+    } else {
+      toast.success(`Email notifications ${newVal ? 'enabled' : 'disabled'}`);
+    }
+  };
+
+  const handleSmsToggle = async () => {
+    const newVal = !smsNotifications;
+    setSmsNotifications(newVal);
+    const { error } = await supabase.auth.updateUser({ data: { sms_notifications: newVal } });
+    if (error) {
+      setSmsNotifications(!newVal);
+      toast.error("Failed to update preference.");
+    } else {
+      toast.success(`SMS notifications ${newVal ? 'enabled' : 'disabled'}`);
+    }
+  };
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || "");
+      setDob(profile.date_of_birth || "");
+      setPhone(profile.phone_number || "");
+    }
+  }, [profile]);
+
+  const handleProfileUpdate = async () => {
+    setUpdatingProfile(true);
+    try {
+      await updateProfile({
+        full_name: fullName,
+        date_of_birth: dob,
+        phone_number: phone
+      });
+      toast.success("Profile updated successfully");
+    } catch (error: any) {
+      console.error("Profile update error:", error);
+      toast.error(`Failed to update profile: ${error.message || "Unknown error"}`);
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Password updated successfully");
+      setPasswordDialogOpen(false);
+      setNewPassword("");
+    } catch (error: any) {
+      console.error("Password update error:", error);
+      toast.error(error.message || "Failed to update password.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    toast.error("Account deletion requires admin approval.", {
+      action: {
+        label: "Contact Support",
+        onClick: () => navigate("/support")
+      }
+    });
+  };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -168,7 +279,7 @@ const HostDashboard = () => {
                     <NavButton icon={MessageSquare} label="Messages" onClick={() => navigate("/host/messages")} />
                     <NavButton icon={Wallet} label="Earnings & Wallet" active={activeTab === "wallet"} onClick={() => handleTabChange("wallet")} />
                     <NavButton icon={Home} label="Manage Listings" active={activeTab === "listings"} onClick={() => handleTabChange("listings")} />
-                    <NavButton icon={Settings} label="Profile Settings" active={activeTab === "profile"} onClick={() => handleTabChange("profile")} />
+                    <NavButton icon={Settings} label="Profile & Settings" active={activeTab === "profile"} onClick={() => handleTabChange("profile")} />
                   </nav>
 
                   <hr className="my-6 border-border" />
@@ -198,6 +309,7 @@ const HostDashboard = () => {
                   <TabsTrigger value="listings" className="tab-premium">My Listings</TabsTrigger>
                   <TabsTrigger value="wallet" className="tab-premium">Wallet</TabsTrigger>
                   <TabsTrigger value="profile" className="tab-premium">Profile</TabsTrigger>
+                  <TabsTrigger value="settings" className="tab-premium">Settings</TabsTrigger>
                 </TabsList>
 
                 {/* --- OVERVIEW --- */}
@@ -428,16 +540,20 @@ const HostDashboard = () => {
                       <h2 className="text-3xl font-black text-foreground tracking-tight">Profile</h2>
                       <p className="text-muted-foreground font-medium italic text-sm">Manage account preferences</p>
                     </div>
-                    <Button className="w-full md:w-auto rounded-2xl bg-primary text-primary-foreground shadow-lg font-black h-12 px-10 hover:bg-primary/90">Save Changes</Button>
+                    <Button onClick={handleProfileUpdate} disabled={updatingProfile} className="w-full md:w-auto rounded-2xl bg-primary text-primary-foreground shadow-lg font-black h-12 px-10 hover:bg-primary/90">
+                      {updatingProfile ? "Saving..." : "Save Changes"}
+                    </Button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <Card className="border-none shadow-sm rounded-[2.5rem] p-8 bg-card text-center h-fit">
-                      <div className="relative w-32 h-32 mx-auto mb-4">
-                        <img
-                          src={profile?.avatar_url || "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400"}
-                          className="w-full h-full rounded-[2.5rem] object-cover border-4 border-muted shadow-sm"
-                          alt="Profile"
-                        />
+                      <div className="relative w-32 h-32 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/20 rounded-[2.5rem] flex items-center justify-center overflow-hidden">
+                        {profile?.verification_status === 'verified' && profile?.selfie_url ? (
+                          <img src={profile.selfie_url} alt="Profile" className="w-full h-full object-cover border-4 border-muted" />
+                        ) : profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover border-4 border-muted" />
+                        ) : (
+                          <User className="h-12 w-12 text-[#F48221]" />
+                        )}
                         <Button size="icon" className="absolute -bottom-1 -right-1 rounded-xl bg-foreground h-9 w-9 border-4 border-card">
                           <Camera className="h-4 w-4 text-background" />
                         </Button>
@@ -445,17 +561,32 @@ const HostDashboard = () => {
                       <h3 className="font-black text-foreground text-lg">
                         {loading ? "Loading..." : (profile?.full_name || user?.email || "Host")}
                       </h3>
+                      <Badge variant="outline" className={cn(
+                        "mt-2 rounded-full px-3 py-0.5 text-[10px] border-border uppercase tracking-widest",
+                        profile?.verification_status === 'verified'
+                          ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                          : "text-muted-foreground"
+                      )}>
+                        {profile?.verification_status === 'verified' ? "Verified Host" : "Standard Host"}
+                      </Badge>
                     </Card>
                     <div className="md:col-span-2 space-y-6">
                       <Card className="border-none shadow-sm rounded-[2.5rem] p-8 bg-card">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <ProfileInput label="Full Name" defaultValue={profile?.full_name || ""} />
-                          <ProfileInput label="Email" defaultValue={user?.email || ""} />
-                          <div className="md:col-span-2 space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Bio</label>
-                            <textarea
-                              className="w-full bg-muted border-none rounded-2xl p-4 font-bold text-foreground focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none"
-                              defaultValue="Luxury host in VI."
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</label>
+                            <Input
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              className="bg-muted border-none h-12 rounded-2xl px-5 font-bold text-foreground"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Email (Read Only)</label>
+                            <Input
+                              value={user?.email || ""}
+                              readOnly
+                              className="bg-muted border-none h-12 rounded-2xl px-5 font-bold text-muted-foreground cursor-not-allowed"
                             />
                           </div>
                         </div>
@@ -463,6 +594,108 @@ const HostDashboard = () => {
                     </div>
                   </div>
                 </TabsContent>
+
+                {/* SETTINGS TAB */}
+                {activeTab === "settings" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <Card className="border-none shadow-sm rounded-[2.5rem] p-6 md:p-8 bg-card">
+                      <h2 className="text-xl font-black text-foreground mb-6 flex items-center gap-2">
+                        <Bell className="h-5 w-5 text-[#F48221]" /> Notifications
+                      </h2>
+                      <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-foreground">Email Notifications</p>
+                            <p className="text-xs text-muted-foreground font-medium">Receive emails about your bookings and account activity.</p>
+                          </div>
+                          <div
+                            className={cn("h-6 w-11 rounded-full relative cursor-pointer transition-colors", emailNotifications ? "bg-emerald-500" : "bg-muted")}
+                            onClick={handleEmailToggle}
+                          >
+                            <div className={cn("h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all animate-in zoom-in slide-in-from-left-0", emailNotifications ? "right-0.5" : "left-0.5")} />
+                          </div>
+                        </div>
+                        <div className="h-[1px] w-full bg-border" />
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-foreground">SMS Notifications</p>
+                            <p className="text-xs text-muted-foreground font-medium">Receive text messages for urgent updates.</p>
+                          </div>
+                          <div
+                            className={cn("h-6 w-11 rounded-full relative cursor-pointer transition-colors", smsNotifications ? "bg-emerald-500" : "bg-muted")}
+                            onClick={handleSmsToggle}
+                          >
+                            <div className={cn("h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all animate-in zoom-in slide-in-from-left-0", smsNotifications ? "right-0.5" : "left-0.5")} />
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="border-none shadow-sm rounded-[2.5rem] p-6 md:p-8 bg-card">
+                      <h2 className="text-xl font-black text-foreground mb-6 flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-[#F48221]" /> Security
+                      </h2>
+                      <div className="space-y-6">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                          <div>
+                            <p className="font-bold text-foreground">Change Password</p>
+                            <p className="text-xs text-muted-foreground font-medium">Update your password regularly to keep your account safe.</p>
+                          </div>
+
+                          <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="rounded-full font-bold w-full md:w-auto">Update</Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-card border-none">
+                              <DialogHeader>
+                                <DialogTitle className="text-xl font-black">Update Password</DialogTitle>
+                                <DialogDescription className="font-medium text-muted-foreground">
+                                  Enter your new password below. You will be logged out after changing it.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <form onSubmit={handlePasswordUpdate} className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold uppercase text-muted-foreground">New Password</label>
+                                  <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                      type={showPassword ? "text" : "password"}
+                                      placeholder="••••••••"
+                                      className="pl-10 pr-10 h-14 bg-muted border-none rounded-xl"
+                                      value={newPassword}
+                                      onChange={(e) => setNewPassword(e.target.value)}
+                                      required
+                                      minLength={6}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-2"
+                                    >
+                                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                  </div>
+                                </div>
+                                <Button type="submit" disabled={isUpdatingPassword} className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
+                                  {isUpdatingPassword ? <LoadingSpinner className="h-5 w-5" /> : "Save New Password"}
+                                </Button>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
+
+                        </div>
+                        <div className="h-[1px] w-full bg-border" />
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                          <div>
+                            <p className="font-bold text-red-500">Delete Account</p>
+                            <p className="text-xs text-muted-foreground font-medium">Permanently delete your account and data.</p>
+                          </div>
+                          <Button variant="ghost" className="text-red-500 font-bold hover:bg-red-500/10 hover:text-red-600 rounded-full w-full md:w-auto" onClick={handleDeleteAccount}>Delete</Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                )}
               </Tabs>
             </div>
           </div>
@@ -502,14 +735,17 @@ const ListingCard = ({ id, image, title, location, price, status, rating, review
           </DialogContent>
         </Dialog>
         <div className="flex-1 p-6 flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="text-lg font-black text-foreground leading-tight">{title}</h3>
-              <p className="text-muted-foreground font-bold text-[10px] flex items-center gap-1 mt-1 uppercase tracking-tighter"><MapPin className="h-3 w-3" /> {location}</p>
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4 w-full">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-black text-foreground leading-tight truncate">{title}</h3>
+              <p className="text-muted-foreground font-bold text-[10px] flex items-center gap-1 mt-1 uppercase tracking-tighter">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{location}</span>
+              </p>
             </div>
-            <p className="text-lg font-black text-foreground">{formatNaira(price)}</p>
+            <p className="text-lg font-black text-foreground whitespace-nowrap shrink-0">{formatNaira(price)}</p>
           </div>
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-border w-full">
             <div className="flex items-center gap-1">
               <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
               <span className="text-xs font-black text-foreground">{rating}</span>
@@ -571,7 +807,7 @@ const HostListings = ({ user }: { user: any }) => {
             <ListingCard
               key={l.id}
               id={l.id}
-              image={l.images[0] || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800"}
+              image={l.images[0]}
               title={l.title}
               location={l.location}
               price={l.price_per_night}

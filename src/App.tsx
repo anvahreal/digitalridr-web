@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ListingDetail from "./pages/ListingDetail";
 import Auth from "./pages/Auth";
+import { ResetPassword } from "./pages/ResetPassword";
 import Host from "./pages/Host";
 import NotFound from "./pages/NotFound";
 import UserDashboard from "./pages/UserDashboard";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/search" element={<Search />} />
               <Route path="/listing/:id" element={<ListingDetail />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/learn-more" element={<LearnMore />} />
