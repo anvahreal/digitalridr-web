@@ -489,15 +489,25 @@ const ListingDetail = () => {
                     {listing.max_guests} guests · {listing.bedrooms} bedroom{listing.bedrooms > 1 ? "s" : ""} · {listing.beds} bed{listing.beds > 1 ? "s" : ""} · {listing.bathrooms} bath
                   </p>
                 </div>
-                <div className="relative">
-                  <img
-                    src={listing.host_logo || listing.host_avatar}
-                    alt={listing.host_name}
-                    className="h-14 w-14 rounded-full border-2 border-background object-cover shadow-md"
-                  />
+                <div className="relative shrink-0">
+                  {listing.host_logo ? (
+                    <div className="h-16 w-16 overflow-hidden rounded-xl bg-white shadow-sm border border-border flex items-center justify-center">
+                      <img
+                        src={listing.host_logo}
+                        alt={listing.host_name}
+                        className="h-full w-full object-contain p-1"
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={listing.host_avatar}
+                      alt={listing.host_name}
+                      className="h-14 w-14 rounded-full border-2 border-background object-cover shadow-md"
+                    />
+                  )}
                   {listing.is_superhost && (
-                    <div className="absolute -bottom-1 -right-1 rounded-full bg-background p-0.5 shadow-sm">
-                      <ShieldCheck className="h-5 w-5 text-[#F48221]" />
+                    <div className="absolute -bottom-2 -right-2 rounded-full bg-background p-0.5 shadow-sm">
+                      <ShieldCheck className="h-6 w-6 text-[#F48221]" />
                     </div>
                   )}
                 </div>

@@ -15,6 +15,7 @@ export interface Listing {
   host_id: string;
   host_name: string;
   host_avatar?: string;
+  host_logo?: string | null;
   rating: number;
   review_count: number;
   is_superhost: boolean;

@@ -104,6 +104,17 @@ export function ListingCard({ listing, className }: ListingCardProps) {
             Superhost
           </div>
         )}
+
+        {/* Host Logo Badge */}
+        {listing.host_logo && (
+          <div className="absolute right-3 bottom-3 h-10 w-10 overflow-hidden rounded-lg bg-white shadow-md">
+            <img
+              src={listing.host_logo}
+              alt="Host Logo"
+              className="h-full w-full object-contain p-1"
+            />
+          </div>
+        )}
       </div>
 
       {/* Info */}
