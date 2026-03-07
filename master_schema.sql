@@ -81,6 +81,7 @@ create table if not exists public.listings (
   wifi_password text,
   access_code text,
   check_in_instructions text,
+  host_logo text,
   
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   rating numeric default 0,
