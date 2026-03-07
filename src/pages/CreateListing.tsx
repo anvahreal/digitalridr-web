@@ -125,9 +125,11 @@ const CreateListing = () => {
     wifi_password: "",
     access_code: "",
     check_in_instructions: "",
+    host_logo: "", // Added host logo field
   });
 
   const [uploading, setUploading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   // Fetch data if editing
   useEffect(() => {
@@ -162,6 +164,7 @@ const CreateListing = () => {
             wifi_password: data.wifi_password || "",
             access_code: data.access_code || "",
             check_in_instructions: data.check_in_instructions || "",
+            host_logo: data.host_logo || "",
           });
         }
       } catch (err: any) {
@@ -232,6 +235,41 @@ const CreateListing = () => {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!user) {
+      toast.error("You must be logged in to upload a logo.");
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${user?.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('listing-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('listing-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, host_logo: publicUrl }));
+      toast.success("Host logo uploaded successfully!");
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      toast.error(error.message || "Failed to upload host logo");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const removeImage = (index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -275,6 +313,7 @@ const CreateListing = () => {
         wifi_password: formData.wifi_password,
         access_code: formData.access_code,
         check_in_instructions: formData.check_in_instructions,
+        host_logo: formData.host_logo, // Include host_logo in payload
       };
 
       if (isEditMode) {
@@ -809,31 +848,63 @@ const CreateListing = () => {
                   value={formData.video_url}
                   onChange={(e: any) => handleInputChange("video_url", e.target.value)}
                 />
+              </div>
 
-                {/* Concierge Video Upload */}
-                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-emerald-800">Have a video file instead?</p>
-                    <p className="text-[10px] text-emerald-600 mt-0.5">Send it to us via WhatsApp and we'll upload it for you.</p>
+              {/* Host Logo Upload Section */}
+              <div className="pt-8 border-t border-border">
+                <h3 className="text-xl font-bold text-foreground mb-4">Host Logo (Optional)</h3>
+                <p className="text-sm text-muted-foreground mb-4">Add a logo to display on your listing page.</p>
+                <div className="flex items-center gap-6">
+                  <div className="relative h-24 w-24 rounded-full border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
+                    {formData.host_logo ? (
+                      <img src={formData.host_logo} alt="Host Logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <Camera className="h-8 w-8 text-muted-foreground opacity-50" />
+                    )}
+                    {formData.host_logo && (
+                      <button
+                        onClick={() => handleInputChange('host_logo', '')}
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="bg-white hover:bg-emerald-100 border-emerald-200 text-emerald-700 h-9 rounded-xl gap-2 shadow-sm"
-                    onClick={() => window.open(`https://wa.me/2348000000000?text=${encodeURIComponent(`Hello DigitalRidr, I have a video tour for my listing "${formData.title || 'Untitled'}" that I'd like to upload.`)}`, '_blank')}
-                  >
-                    <Video className="h-4 w-4" /> Send Video
-                  </Button>
+                  <label className={`cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 ${logoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                      disabled={logoUploading}
+                    />
+                    {logoUploading ? "Uploading..." : formData.host_logo ? "Change Logo" : "Upload Logo"}
+                  </label>
                 </div>
+              </div>
+
+              {/* Concierge Video Upload */}
+              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-emerald-800">Have a video file instead?</p>
+                  <p className="text-[10px] text-emerald-600 mt-0.5">Send it to us via WhatsApp and we'll upload it for you.</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-white hover:bg-emerald-100 border-emerald-200 text-emerald-700 h-9 rounded-xl gap-2 shadow-sm"
+                  onClick={() => window.open(`https://wa.me/2348000000000?text=${encodeURIComponent(`Hello DigitalRidr, I have a video tour for my listing "${formData.title || 'Untitled'}" that I'd like to upload.`)}`, '_blank')}
+                >
+                  <Video className="h-4 w-4" /> Send Video
+                </Button>
               </div>
             </div>
           )}
-
         </div>
       </main>
 
       {/* FOOTER NAVIGATION */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border p-4 pb-8 md:pb-6 z-50">
+      < footer className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border p-4 pb-8 md:pb-6 z-50" >
         <div className="max-w-xl mx-auto flex gap-4">
           {step > 1 && (
             <Button
@@ -857,8 +928,8 @@ const CreateListing = () => {
             )}
           </Button>
         </div>
-      </footer>
-    </div>
+      </footer >
+    </div >
   );
 };
 

@@ -19,16 +19,25 @@ export function useFavorites() {
             const { data, error } = await supabase
                 .from('favorites')
                 .select(`
-          *,
-          listing:listings(*)
-        `)
+                    id,
+                    user_id,
+                    listing_id,
+                    listings (*)
+                `)
                 .eq('user_id', user.id);
 
             if (error) throw error;
 
-            // Transform data to match Listing type if needed, or just extract the listing object
-            // data is [{ id:..., listing: {...} }]
-            const formattedFavorites = data.map((item: any) => item.listing).filter(Boolean);
+            if (!data) {
+                setFavorites([]);
+                return;
+            }
+
+            // The join returns `listings` object, unwrap it carefully
+            const formattedFavorites = data
+                .map((item: any) => item.listings)
+                .filter(Boolean) as Listing[];
+
             setFavorites(formattedFavorites);
         } catch (error) {
             console.error('Error fetching favorites:', error);

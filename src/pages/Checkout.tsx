@@ -188,18 +188,6 @@ const Checkout = () => {
         `<p>Hi ${user.full_name},</p><p>Your booking for <b>${listing.title}</b> is confirmed!</p><p>Pass this code at the gate: <b>${reference.reference}</b></p>`
       );
 
-      // Notify Host
-      // Note: We need to fetch host email. For now, we rely on the backend trigger or assume we have it.
-      // Since we don't have host email in 'listing' object easily properly without join, 
-      // we will rely on the backend trigger for the *Host* notification if possible, 
-      // OR we fetch it. 
-      // actually, 'listing.host_id' is available. We can't easily get email without another fetch.
-      // Let's stick to notifying the Guest here (User experience) and let the backend trigger handle the Host notification 
-      // IF we set up the webhook. 
-      // BUT, since we are doing client-side orchestration as the MVP, we SHOULD fetch the host email.
-      // However, fetching host email here might be slow.
-      // Let's just notify the Guest for now to ensure *they* get the receipt. 
-
       navigate("/dashboard");
 
     } catch (err: any) {
@@ -430,12 +418,14 @@ const Checkout = () => {
 
                   {openSection === "house-rules" && (
                     <div className="px-5 pb-6 pt-2 animate-in slide-in-from-top-2 duration-200">
-                      {/* DYNAMIC DESCRIPTION - "About this place" */}
-                      <div className="bg-muted/50 rounded-xl p-4 mb-4">
-                        <p className="text-xs text-muted-foreground leading-relaxed italic">
-                          "{listing.description || 'Welcome to my home! I only ask that you treat the space with the same love and respect as you would your own. Enjoy your stay!'}"
-                        </p>
-                      </div>
+                      {/* DEFAULT WELCOME MESSAGE */}
+                      {(!listing.house_rules || listing.house_rules.length === 0) && (
+                        <div className="bg-muted/50 rounded-xl p-4 mb-4">
+                          <p className="text-xs text-muted-foreground leading-relaxed italic">
+                            "Welcome to my home! I only ask that you treat the space with the same love and respect as you would your own. Enjoy your stay!"
+                          </p>
+                        </div>
+                      )}
 
                       {/* DYNAMIC HOUSE RULES */}
                       <div className="space-y-4">

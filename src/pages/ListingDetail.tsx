@@ -83,19 +83,43 @@ const ListingDetail = () => {
   useEffect(() => {
     if (!id) return;
     const fetchReviews = async () => {
-      const { data, error } = await supabase
+      // 1. Fetch reviews
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from('reviews')
-        .select(`
-          *,
-          guest:guest_id (
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('listing_id', id)
         .order('created_at', { ascending: false });
 
-      if (data) setReviews(data);
+      if (reviewsError) {
+        console.error("Error fetching reviews:", reviewsError);
+        setReviewsLoading(false);
+        return;
+      }
+
+      if (!reviewsData || reviewsData.length === 0) {
+        setReviews([]);
+        setReviewsLoading(false);
+        return;
+      }
+
+      // 2. Fetch profiles for these reviews
+      const guestIds = [...new Set(reviewsData.map(r => r.guest_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', guestIds);
+
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+      }
+
+      // 3. Map profiles to reviews
+      const enrichedReviews = reviewsData.map(review => ({
+        ...review,
+        guest: profilesData?.find(p => p.id === review.guest_id) || null
+      }));
+
+      setReviews(enrichedReviews);
       setReviewsLoading(false);
     };
     fetchReviews();
@@ -127,12 +151,27 @@ const ListingDetail = () => {
       setIsReviewOpen(false);
       setNewReviewContent("");
       // Refresh reviews
-      const { data } = await supabase
+      const { data: newReviewsData } = await supabase
         .from('reviews')
-        .select(`*, guest:guest_id(full_name, avatar_url)`)
+        .select('*')
         .eq('listing_id', id)
         .order('created_at', { ascending: false });
-      if (data) setReviews(data);
+
+      if (newReviewsData && newReviewsData.length > 0) {
+        const guestIds = [...new Set(newReviewsData.map(r => r.guest_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', guestIds);
+
+        const enrichedReviews = newReviewsData.map(review => ({
+          ...review,
+          guest: profilesData?.find(p => p.id === review.guest_id) || null
+        }));
+        setReviews(enrichedReviews);
+      } else {
+        setReviews([]);
+      }
 
     } catch (e: any) {
       console.error("Review Error:", e);
@@ -452,7 +491,7 @@ const ListingDetail = () => {
                 </div>
                 <div className="relative">
                   <img
-                    src={listing.host_avatar}
+                    src={listing.host_logo || listing.host_avatar}
                     alt={listing.host_name}
                     className="h-14 w-14 rounded-full border-2 border-background object-cover shadow-md"
                   />
@@ -530,7 +569,7 @@ const ListingDetail = () => {
 
                   <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="border-black text-black font-semibold hover:bg-muted">Write a Review</Button>
+                      <Button variant="outline" className="border-foreground text-foreground font-semibold hover:bg-muted">Write a Review</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
                       <div className="grid gap-4 py-4">
