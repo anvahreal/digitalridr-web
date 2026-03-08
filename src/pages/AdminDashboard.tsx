@@ -334,17 +334,9 @@ const AdminDashboard = () => {
             {/* Sidebar */}
             <aside className="w-64 border-r border-border bg-card hidden md:flex flex-col">
                 <div className="p-6 border-b border-border">
-                    <div className="flex items-center gap-2 group cursor-default">
-                        <div className="relative flex items-center justify-center">
-                            <MapPin className="h-8 w-8 text-[#F48221] fill-[#F48221]" />
-                            <div className="h-3 w-3 bg-white rounded-full absolute top-[7px] left-[10px]" />
-                        </div>
-                        <div className="flex flex-col -space-y-1.5">
-                            <span className="font-black text-xl tracking-tighter text-[#00AEEF]">
-                                Digital<span className="text-[#F48221]">Ridr</span>
-                            </span>
-                            <span className="text-[7px] font-extrabold tracking-[0.3em] text-[#F48221] uppercase text-right w-full pr-0.5">Admin Panel</span>
-                        </div>
+                    <div className="flex flex-col items-start justify-center gap-1 cursor-default">
+                        <img src="/assets/digitalridr-logo.PNG" alt="Digital Ridr" className="h-8 w-auto" />
+                        <span className="text-[10px] font-black tracking-[0.3em] text-[#F48221] uppercase mt-1 pl-1">Admin Panel</span>
                     </div>
                 </div>
                 <nav className="flex-1 p-4 space-y-2">
@@ -453,17 +445,9 @@ const AdminDashboard = () => {
                             </SheetTrigger>
                             <SheetContent side="left" className="w-64 p-0 bg-card border-r border-border flex flex-col">
                                 <div className="p-6 border-b border-border">
-                                    <div className="flex items-center gap-2 group cursor-default">
-                                        <div className="relative flex items-center justify-center">
-                                            <MapPin className="h-8 w-8 text-[#F48221] fill-[#F48221]" />
-                                            <div className="h-3 w-3 bg-white rounded-full absolute top-[7px] left-[10px]" />
-                                        </div>
-                                        <div className="flex flex-col -space-y-1.5">
-                                            <span className="font-black text-xl tracking-tighter text-[#00AEEF]">
-                                                Digital<span className="text-[#F48221]">Ridr</span>
-                                            </span>
-                                            <span className="text-[7px] font-extrabold tracking-[0.3em] text-[#F48221] uppercase text-right w-full pr-0.5">Admin Panel</span>
-                                        </div>
+                                    <div className="flex flex-col items-start justify-center gap-1 cursor-default">
+                                        <img src="/assets/digitalridr-logo.PNG" alt="Digital Ridr" className="h-8 w-auto" />
+                                        <span className="text-[10px] font-black tracking-[0.3em] text-[#F48221] uppercase mt-1 pl-1">Admin Panel</span>
                                     </div>
                                 </div>
                                 <nav className="flex-1 p-4 space-y-2">

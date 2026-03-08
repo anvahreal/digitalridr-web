@@ -371,10 +371,7 @@ const CreateListing = () => {
         <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border">
           <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MapPin className="h-6 w-6 text-[#F48221] fill-[#F48221]" />
-              <span className="font-black text-xl tracking-tighter text-[#00AEEF]">
-                Digital<span className="text-[#F48221]">Ridr</span>
-              </span>
+              <img src="/assets/digitalridr-logo.PNG" alt="Digital Ridr Apartments" className="h-8 w-auto" />
             </div>
             <Button variant="ghost" onClick={() => navigate('/')} className="font-bold text-sm">
               Back to Home

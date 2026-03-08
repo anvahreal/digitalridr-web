@@ -42,16 +42,11 @@ export function Header() {
       <div className="container mx-auto flex items-center justify-between px-4">
         {/* Logo Section */}
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="relative flex items-center justify-center">
-            <MapPin className="h-8 w-8 text-[#F48221] fill-[#F48221] group-hover:scale-110 transition-transform" />
-            <div className="h-3 w-3 bg-white rounded-full absolute top-[7px] left-[10px]" />
-          </div>
-          <div className="flex flex-col -space-y-1.5">
-            <span className="font-black text-xl md:text-2xl tracking-tighter text-[#00AEEF]">
-              Digital<span className="text-[#F48221]">Ridr</span>
-            </span>
-            <span className="text-[7px] font-extrabold tracking-[0.3em] text-[#F48221] uppercase text-right w-full pr-0.5">Apartments</span>
-          </div>
+          <img
+            src="/assets/digitalridr-logo.PNG"
+            alt="Digital Ridr Apartments"
+            className="h-8 md:h-10 w-auto group-hover:opacity-90 transition-opacity"
+          />
         </Link>
 
         {!location.pathname.includes("/host") && (

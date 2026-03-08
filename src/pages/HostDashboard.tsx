@@ -43,6 +43,9 @@ const HostDashboard = () => {
   const [phone, setPhone] = useState("");
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [updatingAvatar, setUpdatingAvatar] = useState(false);
+
   // Settings State
   const [newPassword, setNewPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -95,8 +98,41 @@ const HostDashboard = () => {
       setFullName(profile.full_name || "");
       setDob(profile.date_of_birth || "");
       setPhone(profile.phone_number || "");
+      setAvatarUrl(profile.avatar_url || "");
     }
   }, [profile]);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUpdatingAvatar(true);
+
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('You must select an image to upload.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user?.id}-${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      setAvatarUrl(data.publicUrl);
+      await updateProfile({ avatar_url: data.publicUrl });
+      toast.success('Avatar updated successfully!');
+    } catch (error: any) {
+      toast.error(error.message || 'Error uploading avatar!');
+    } finally {
+      setUpdatingAvatar(false);
+    }
+  };
 
   const handleProfileUpdate = async () => {
     setUpdatingProfile(true);
@@ -104,7 +140,8 @@ const HostDashboard = () => {
       await updateProfile({
         full_name: fullName,
         date_of_birth: dob,
-        phone_number: phone
+        phone_number: phone,
+        avatar_url: avatarUrl
       });
       toast.success("Profile updated successfully");
     } catch (error: any) {
@@ -546,15 +583,31 @@ const HostDashboard = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <Card className="border-none shadow-sm rounded-[2.5rem] p-8 bg-card text-center h-fit">
-                      <div className="relative w-32 h-32 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/20 rounded-[2.5rem] flex items-center justify-center overflow-hidden">
-                        {profile?.verification_status === 'verified' && profile?.selfie_url ? (
-                          <img src={profile.selfie_url} alt="Profile" className="w-full h-full object-cover border-4 border-muted" />
-                        ) : profile?.avatar_url ? (
-                          <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover border-4 border-muted" />
+                      <div className="relative group w-32 h-32 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/20 rounded-[2.5rem] flex items-center justify-center overflow-hidden">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          disabled={updatingAvatar}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          title="Upload Avatar"
+                        />
+                        {updatingAvatar ? (
+                          <LoadingSpinner className="h-8 w-8 text-[#F48221]" />
+                        ) : avatarUrl ? (
+                          <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover border-4 border-muted transition-opacity group-hover:opacity-50" />
+                        ) : profile?.verification_status === 'verified' && profile?.selfie_url ? (
+                          <img src={profile.selfie_url} alt="Profile" className="w-full h-full object-cover border-4 border-muted transition-opacity group-hover:opacity-50" />
                         ) : (
-                          <User className="h-12 w-12 text-[#F48221]" />
+                          <User className="h-12 w-12 text-[#F48221] transition-opacity group-hover:opacity-50" />
                         )}
-                        <Button size="icon" className="absolute -bottom-1 -right-1 rounded-xl bg-foreground h-9 w-9 border-4 border-card">
+
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <span className="text-white text-[10px] font-bold px-2 text-center text-balance leading-tight pt-10">Upload Avatar</span>
+                        </div>
+
+                        <Button size="icon" className="absolute -bottom-1 -right-1 rounded-xl bg-foreground h-9 w-9 border-4 border-card pointer-events-none group-hover:opacity-0 transition-opacity">
                           <Camera className="h-4 w-4 text-background" />
                         </Button>
                       </div>

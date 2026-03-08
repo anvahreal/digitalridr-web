@@ -162,7 +162,7 @@ export const BookingReceipt = ({ booking, open, onOpenChange }: any) => {
                 <div className="print:fixed print:inset-0 print:bg-white print:z-[99999] print:p-8" id="printable-receipt">
                     <div className="flex justify-between items-start mb-8">
                         <div>
-                            <h2 className="text-2xl font-black text-[#00AEEF]">Digital<span className="text-[#F48221]">Ridr</span></h2>
+                            <img src="/assets/digitalridr-logo.PNG" alt="Digital Ridr" className="h-8 w-auto mb-1" />
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Booking Receipt</p>
                         </div>
                         <div className="text-right">
