@@ -236,7 +236,7 @@ const UserDashboard = () => {
             <p className="text-muted-foreground font-medium mt-1">
               {bookings.filter(b => b.status === 'confirmed').length > 0
                 ? `You have ${bookings.filter(b => b.status === 'confirmed').length} upcoming bookings.`
-                : "No upcoming trips."}
+                : "No upcoming bookings."}
             </p>
           </div>
 
