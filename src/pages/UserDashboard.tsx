@@ -328,8 +328,8 @@ const UserDashboard = () => {
                       <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                         <Calendar className="h-8 w-8 text-muted-foreground" />
                       </div>
-                      <h3 className="font-bold text-foreground mb-1">No trips booked... yet!</h3>
-                      <p className="text-xs text-muted-foreground mb-4">Time to dust off your bags and start planning your next adventure</p>
+                      <h3 className="font-bold text-foreground mb-1">No stays booked... yet!</h3>
+                      <p className="text-xs text-muted-foreground mb-4">Time to dust off your bags and start planning your next stay</p>
                       <Button onClick={() => navigate('/')} className="rounded-xl px-6 font-bold bg-[#F48221] hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20">
                         Start Searching
                       </Button>
