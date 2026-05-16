@@ -46,53 +46,6 @@ const HostDashboard = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [updatingAvatar, setUpdatingAvatar] = useState(false);
 
-  // Settings State
-  const [newPassword, setNewPassword] = useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(false);
-
-  useEffect(() => {
-    const fetchNotificationSettings = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.user_metadata) {
-        if (user.user_metadata.email_notifications !== undefined) {
-          setEmailNotifications(user.user_metadata.email_notifications);
-        }
-        if (user.user_metadata.sms_notifications !== undefined) {
-          setSmsNotifications(user.user_metadata.sms_notifications);
-        }
-      }
-    };
-    fetchNotificationSettings();
-  }, []);
-
-  const handleEmailToggle = async () => {
-    const newVal = !emailNotifications;
-    setEmailNotifications(newVal);
-    const { error } = await supabase.auth.updateUser({ data: { email_notifications: newVal } });
-    if (error) {
-      setEmailNotifications(!newVal);
-      toast.error("Failed to update preference.");
-    } else {
-      toast.success(`Email notifications ${newVal ? 'enabled' : 'disabled'}`);
-    }
-  };
-
-  const handleSmsToggle = async () => {
-    const newVal = !smsNotifications;
-    setSmsNotifications(newVal);
-    const { error } = await supabase.auth.updateUser({ data: { sms_notifications: newVal } });
-    if (error) {
-      setSmsNotifications(!newVal);
-      toast.error("Failed to update preference.");
-    } else {
-      toast.success(`SMS notifications ${newVal ? 'enabled' : 'disabled'}`);
-    }
-  };
-
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
@@ -150,37 +103,6 @@ const HostDashboard = () => {
     } finally {
       setUpdatingProfile(false);
     }
-  };
-
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPassword || newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters long.");
-      return;
-    }
-
-    setIsUpdatingPassword(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      toast.success("Password updated successfully");
-      setPasswordDialogOpen(false);
-      setNewPassword("");
-    } catch (error: any) {
-      console.error("Password update error:", error);
-      toast.error(error.message || "Failed to update password.");
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    toast.error("Account deletion requires admin approval.", {
-      action: {
-        label: "Contact Support",
-        onClick: () => navigate("/support")
-      }
-    });
   };
 
   const handleTabChange = (value: string) => {
@@ -316,7 +238,7 @@ const HostDashboard = () => {
                     <NavButton icon={MessageSquare} label="Messages" onClick={() => navigate("/host/messages")} />
                     <NavButton icon={Wallet} label="Earnings & Wallet" active={activeTab === "wallet"} onClick={() => handleTabChange("wallet")} />
                     <NavButton icon={Home} label="Manage Listings" active={activeTab === "listings"} onClick={() => handleTabChange("listings")} />
-                    <NavButton icon={Settings} label="Profile & Settings" active={activeTab === "profile"} onClick={() => handleTabChange("profile")} />
+                    <NavButton icon={Settings} label="Profile" active={activeTab === "profile"} onClick={() => handleTabChange("profile")} />
                   </nav>
 
                   <hr className="my-6 border-border" />
@@ -346,7 +268,7 @@ const HostDashboard = () => {
                   <TabsTrigger value="listings" className="tab-premium">My Listings</TabsTrigger>
                   <TabsTrigger value="wallet" className="tab-premium">Wallet</TabsTrigger>
                   <TabsTrigger value="profile" className="tab-premium">Profile</TabsTrigger>
-                  <TabsTrigger value="settings" className="tab-premium">Settings</TabsTrigger>
+
                 </TabsList>
 
                 {/* --- OVERVIEW --- */}
@@ -648,107 +570,6 @@ const HostDashboard = () => {
                   </div>
                 </TabsContent>
 
-                {/* SETTINGS TAB */}
-                {activeTab === "settings" && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <Card className="border-none shadow-sm rounded-[2.5rem] p-6 md:p-8 bg-card">
-                      <h2 className="text-xl font-black text-foreground mb-6 flex items-center gap-2">
-                        <Bell className="h-5 w-5 text-[#F48221]" /> Notifications
-                      </h2>
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-bold text-foreground">Email Notifications</p>
-                            <p className="text-xs text-muted-foreground font-medium">Receive emails about your bookings and account activity.</p>
-                          </div>
-                          <div
-                            className={cn("h-6 w-11 rounded-full relative cursor-pointer transition-colors", emailNotifications ? "bg-emerald-500" : "bg-muted")}
-                            onClick={handleEmailToggle}
-                          >
-                            <div className={cn("h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all animate-in zoom-in slide-in-from-left-0", emailNotifications ? "right-0.5" : "left-0.5")} />
-                          </div>
-                        </div>
-                        <div className="h-[1px] w-full bg-border" />
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-bold text-foreground">SMS Notifications</p>
-                            <p className="text-xs text-muted-foreground font-medium">Receive text messages for urgent updates.</p>
-                          </div>
-                          <div
-                            className={cn("h-6 w-11 rounded-full relative cursor-pointer transition-colors", smsNotifications ? "bg-emerald-500" : "bg-muted")}
-                            onClick={handleSmsToggle}
-                          >
-                            <div className={cn("h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all animate-in zoom-in slide-in-from-left-0", smsNotifications ? "right-0.5" : "left-0.5")} />
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="border-none shadow-sm rounded-[2.5rem] p-6 md:p-8 bg-card">
-                      <h2 className="text-xl font-black text-foreground mb-6 flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-[#F48221]" /> Security
-                      </h2>
-                      <div className="space-y-6">
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                          <div>
-                            <p className="font-bold text-foreground">Change Password</p>
-                            <p className="text-xs text-muted-foreground font-medium">Update your password regularly to keep your account safe.</p>
-                          </div>
-
-                          <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" className="rounded-full font-bold w-full md:w-auto">Update</Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-card border-none">
-                              <DialogHeader>
-                                <DialogTitle className="text-xl font-black">Update Password</DialogTitle>
-                                <DialogDescription className="font-medium text-muted-foreground">
-                                  Enter your new password below. You will be logged out after changing it.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <form onSubmit={handlePasswordUpdate} className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold uppercase text-muted-foreground">New Password</label>
-                                  <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                      type={showPassword ? "text" : "password"}
-                                      placeholder="••••••••"
-                                      className="pl-10 pr-10 h-14 bg-muted border-none rounded-xl"
-                                      value={newPassword}
-                                      onChange={(e) => setNewPassword(e.target.value)}
-                                      required
-                                      minLength={6}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowPassword(!showPassword)}
-                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-2"
-                                    >
-                                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
-                                  </div>
-                                </div>
-                                <Button type="submit" disabled={isUpdatingPassword} className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20">
-                                  {isUpdatingPassword ? <LoadingSpinner className="h-5 w-5" /> : "Save New Password"}
-                                </Button>
-                              </form>
-                            </DialogContent>
-                          </Dialog>
-
-                        </div>
-                        <div className="h-[1px] w-full bg-border" />
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                          <div>
-                            <p className="font-bold text-red-500">Delete Account</p>
-                            <p className="text-xs text-muted-foreground font-medium">Permanently delete your account and data.</p>
-                          </div>
-                          <Button variant="ghost" className="text-red-500 font-bold hover:bg-red-500/10 hover:text-red-600 rounded-full w-full md:w-auto" onClick={handleDeleteAccount}>Delete</Button>
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-                )}
               </Tabs>
             </div>
           </div>
@@ -841,6 +662,43 @@ const HostListings = ({ user }: { user: any }) => {
   // Filter by logged-in user ID
   const myListings = user ? listings.filter(l => l.host_id === user.id) : [];
 
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isBlocking, setIsBlocking] = useState(false);
+
+  const handleBlockDates = async () => {
+    if (!selectedListing || !startDate || !endDate) {
+      toast.error("Please fill all fields");
+      return;
+    }
+    setIsBlocking(true);
+    try {
+      // Create manual booking
+      const { error } = await supabase.from('bookings').insert({
+        listing_id: selectedListing,
+        host_id: user.id,
+        check_in: startDate,
+        check_out: endDate,
+        status: 'confirmed',
+        guests: 0,
+        total_price: 0,
+        user_id: user.id // Using host's own user ID
+      });
+      if (error) throw error;
+      toast.success("Dates blocked successfully");
+      setBlockDialogOpen(false);
+      setStartDate("");
+      setEndDate("");
+      setSelectedListing("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to block dates");
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -848,9 +706,66 @@ const HostListings = ({ user }: { user: any }) => {
           <h2 className="text-3xl font-black text-foreground tracking-tight">My Listings</h2>
           <p className="text-muted-foreground font-medium italic text-sm">You have {myListings.length} properties</p>
         </div>
-        <Button onClick={() => navigate("/host/create-listing")} className="w-full md:w-auto rounded-2xl bg-foreground text-background shadow-lg font-black h-12 px-8 hover:bg-foreground/90">
-          <Plus className="mr-2 h-4 w-4" /> Add Property
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto rounded-2xl shadow-sm font-black h-12 px-6">
+                <Calendar className="mr-2 h-4 w-4" /> Block Dates
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md rounded-[2rem] p-6 border-none bg-card">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black">Block Calendar Dates</DialogTitle>
+                <DialogDescription className="font-medium text-muted-foreground">
+                  Manually mark dates as booked for a listing.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Select Listing</label>
+                  <select 
+                    value={selectedListing} 
+                    onChange={(e) => setSelectedListing(e.target.value)}
+                    className="w-full h-12 bg-muted border-none rounded-2xl px-4 font-bold text-foreground text-sm"
+                  >
+                    <option value="" disabled>Choose a listing...</option>
+                    {myListings.map(l => (
+                      <option key={l.id} value={l.id}>{l.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Start Date</label>
+                    <Input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-muted border-none h-12 rounded-2xl px-4 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">End Date</label>
+                    <Input 
+                      type="date" 
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-muted border-none h-12 rounded-2xl px-4 font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleBlockDates} disabled={isBlocking} className="w-full h-12 rounded-2xl bg-foreground text-background font-black hover:bg-foreground/90">
+                  {isBlocking ? <LoadingSpinner className="h-4 w-4" /> : "Confirm Block"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button onClick={() => navigate("/host/create-listing")} className="w-full sm:w-auto rounded-2xl bg-foreground text-background shadow-lg font-black h-12 px-8 hover:bg-foreground/90">
+            <Plus className="mr-2 h-4 w-4" /> Add Property
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-6">
         {loading ? (

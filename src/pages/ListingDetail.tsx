@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 import { useListing } from "@/hooks/useListings";
 import { useAuth } from "@/hooks/useAuth"; // Added useAuth
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -468,13 +468,26 @@ const ListingDetail = () => {
               ))}
             </div>
 
-            <Button
-              variant="secondary"
-              className="absolute bottom-4 right-4 hidden border-border bg-background/90 font-semibold shadow-sm md:flex"
-              onClick={() => setCurrentImage(0)}
-            >
-              Show all photos
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="secondary"
+                  className="absolute bottom-4 right-4 hidden border-border bg-background/90 font-semibold shadow-sm md:flex"
+                >
+                  Show all photos
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl h-[90vh] overflow-y-auto bg-background p-6">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold mb-4">All Photos</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(listing.images || []).map((img: string, idx: number) => (
+                    <img key={idx} src={img} alt={`Photo ${idx + 1}`} className="w-full h-auto rounded-lg object-cover" />
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="grid gap-12 lg:grid-cols-[1fr_380px]">
