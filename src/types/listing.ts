@@ -9,6 +9,7 @@ export interface Listing {
   max_guests: number;
   bedrooms: number;
   beds: number;
+  minimum_nights?: number;
   bathrooms: number;
   images: string[];
   amenities: string[];

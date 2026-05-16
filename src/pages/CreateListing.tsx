@@ -66,7 +66,18 @@ const CreateListing = () => {
   const isEditMode = !!id;
 
   const { user, updateProfile } = useProfile();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    if (isEditMode) return 1;
+    const saved = localStorage.getItem("create_listing_step");
+    return saved ? parseInt(saved, 10) : 1;
+  });
+
+  useEffect(() => {
+    if (!isEditMode) {
+      localStorage.setItem("create_listing_step", step.toString());
+    }
+  }, [step, isEditMode]);
+
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(!!id);
   const [openDistrict, setOpenDistrict] = useState(false);
@@ -107,26 +118,47 @@ const CreateListing = () => {
   const totalSteps = 3;
 
   // Form State
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "", // Added description
-    location: "",
-    address: "", // Specific street address
-    price: "",
-    bedrooms: 1,
-    bathrooms: 1,
-    guests: 2,
-    amenities: [] as string[],
-    house_rules: "", // Added house rules
-    images: [] as string[], // Stores public URLs
-    video_url: "",
-    security_deposit: "", // Added security deposit
-    wifi_name: "",
-    wifi_password: "",
-    access_code: "",
-    check_in_instructions: "",
-    host_logo: "", // Added host logo field
-  });
+  const getInitialFormData = () => {
+    const defaultData = {
+      title: "",
+      description: "", // Added description
+      location: "",
+      address: "", // Specific street address
+      price: "",
+      bedrooms: 1,
+      bathrooms: 1,
+      guests: 2,
+      minimum_nights: 1,
+      amenities: [] as string[],
+      house_rules: "", // Added house rules
+      images: [] as string[], // Stores public URLs
+      video_url: "",
+      security_deposit: "", // Added security deposit
+      wifi_name: "",
+      wifi_password: "",
+      access_code: "",
+      check_in_instructions: "",
+      host_logo: "", // Added host logo field
+    };
+    if (isEditMode) return defaultData;
+    const saved = localStorage.getItem("create_listing_draft");
+    if (saved) {
+      try {
+        return { ...defaultData, ...JSON.parse(saved) };
+      } catch (e) {
+        return defaultData;
+      }
+    }
+    return defaultData;
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData());
+
+  useEffect(() => {
+    if (!isEditMode) {
+      localStorage.setItem("create_listing_draft", JSON.stringify(formData));
+    }
+  }, [formData, isEditMode]);
 
   const [uploading, setUploading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -155,6 +187,7 @@ const CreateListing = () => {
             bedrooms: data.bedrooms,
             bathrooms: data.bathrooms,
             guests: data.max_guests,
+            minimum_nights: data.minimum_nights || 1,
             amenities: data.amenities || [],
             images: data.images || [],
             video_url: data.video_url || "",
@@ -301,6 +334,7 @@ const CreateListing = () => {
         bedrooms: formData.bedrooms,
         bathrooms: formData.bathrooms,
         max_guests: formData.guests,
+        minimum_nights: formData.minimum_nights,
         amenities: formData.amenities,
         house_rules: formData.house_rules.split('\n').filter(r => r.trim() !== ''), // Convert to array
         images: formData.images,
@@ -336,6 +370,10 @@ const CreateListing = () => {
           .eq('id', user.id);
 
         if (profileError) console.error("Failed to update host status:", profileError);
+
+        // Clear local storage draft after successful save
+        localStorage.removeItem("create_listing_draft");
+        localStorage.removeItem("create_listing_step");
 
         toast.success("Listing published successfully! You are now a host.");
       }
@@ -729,6 +767,7 @@ const CreateListing = () => {
                 <Counter label="Bedrooms" value={formData.bedrooms} onChange={(v) => handleInputChange("bedrooms", v)} />
                 <Counter label="Bathrooms" value={formData.bathrooms} onChange={(v) => handleInputChange("bathrooms", v)} />
                 <Counter label="Max Guests" value={formData.guests} onChange={(v) => handleInputChange("guests", v)} />
+                <Counter label="Minimum Nights" value={formData.minimum_nights} onChange={(v) => handleInputChange("minimum_nights", v)} />
               </div>
 
               {/* CHECK-IN INFO (New Section) */}
