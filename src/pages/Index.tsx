@@ -43,7 +43,7 @@ const Index = () => {
         <div className="space-y-4 pb-16">
           {/* New on DigitalRidr */}
           <ListingSection
-            title="New on DigitalRidr"
+            title="New on Digital Ridr"
             subtitle="Freshly added apartments"
             items={listings.slice(0, 8)}
             loading={loading}

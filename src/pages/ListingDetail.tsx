@@ -212,33 +212,33 @@ const ListingDetail = () => {
     if (!listing?.id) return;
     async function fetchBlockedDates() {
       try {
-        // Safe RPC call
         const { data, error } = await supabase
-          .rpc('get_blocked_dates', { listing_id_input: listing!.id });
+          .from('bookings')
+          .select('check_in, check_out')
+          .eq('listing_id', listing!.id)
+          .eq('status', 'confirmed');
 
         if (error) {
-          console.error("Error fetching availability (RPC):", error);
-          // Fallback or just ignore (dates won't be blocked, but page won't crash)
+          console.error("Error fetching availability:", error);
           return;
         }
 
         if (data) {
           const dates: Date[] = [];
-          // Ensure data is an array before iterating
-          if (Array.isArray(data)) {
-            data.forEach((booking: any) => {
-              if (!booking.check_in || !booking.check_out) return;
-              let current = new Date(booking.check_in);
-              const end = new Date(booking.check_out);
-              // Simple sanity check to prevent infinite loops if data is bad
-              if (isNaN(current.getTime()) || isNaN(end.getTime())) return;
+          data.forEach((booking: any) => {
+            if (!booking.check_in || !booking.check_out) return;
+            // Parse dates ignoring timezones to ensure local midnight
+            // We append 'T00:00:00' to the date string to ensure it's parsed as local time
+            let current = new Date(booking.check_in.split('T')[0] + 'T00:00:00');
+            const end = new Date(booking.check_out.split('T')[0] + 'T00:00:00');
+            
+            if (isNaN(current.getTime()) || isNaN(end.getTime())) return;
 
-              while (current <= end) {
-                dates.push(new Date(current));
-                current.setDate(current.getDate() + 1);
-              }
-            });
-          }
+            while (current <= end) {
+              dates.push(new Date(current));
+              current.setDate(current.getDate() + 1);
+            }
+          });
           setDisabledDates(dates);
         }
       } catch (err) {
@@ -765,6 +765,10 @@ const ListingDetail = () => {
                 </Button>
 
                 <p className="mt-4 text-center text-xs text-muted-foreground font-medium">No payment required yet</p>
+                
+                <div className="mt-3 text-center text-[11px] text-muted-foreground/70 font-medium">
+                  <span className="line-through opacity-70 mr-1">15</span> Dates that are struck-through are already booked.
+                </div>
 
                 {nights > 0 && (
                   <div className="mt-6 space-y-3 border-t pt-6">

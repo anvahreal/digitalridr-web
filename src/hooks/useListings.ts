@@ -55,6 +55,14 @@ export function useListings(): UseListingsReturn {
                     query = query.gte('price_per_night', filters.priceMin);
                 }
 
+                if (filters.bedrooms > 0) {
+                    if (filters.bedrooms === 5) {
+                        query = query.gte('bedrooms', 5);
+                    } else {
+                        query = query.eq('bedrooms', filters.bedrooms);
+                    }
+                }
+
                 const { data, error } = await query;
 
                 if (error) {

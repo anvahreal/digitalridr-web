@@ -34,8 +34,15 @@ const Search = () => {
     }
   }, [locationParam, setFilters]);
 
+  const [localPriceRange, setLocalPriceRange] = useState<number[]>([filters.priceMin, filters.priceMax]);
+
+  // Sync local price range when filters change externally (e.g. clear filters)
+  useEffect(() => {
+    setLocalPriceRange([filters.priceMin, filters.priceMax]);
+  }, [filters.priceMin, filters.priceMax]);
+
   // Handler for Price Range (Slider returns number[])
-  const handlePriceChange = (value: number[]) => {
+  const handlePriceCommit = (value: number[]) => {
     setFilters(prev => ({ ...prev, priceMin: value[0], priceMax: value[1] }));
   };
 
@@ -44,21 +51,15 @@ const Search = () => {
     setFilters(prev => ({ ...prev, bedrooms: val }));
   };
 
-  // Handler for Amenities
   const toggleAmenity = (amenity: string) => {
-    setFilters(prev => {
-      const current = prev.amenities || [];
-      return prev;
-    });
-  };
-
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-
-  const handleToggleAmenity = (amenity: string) => {
     setSelectedAmenities((prev) =>
       prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
     );
   };
+
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
+
 
   const clearFilters = () => {
     setFilters(prev => ({ ...prev, priceMin: 0, priceMax: 1000, bedrooms: 0 }));
@@ -78,10 +79,11 @@ const Search = () => {
       {/* Price Range */}
       <div>
         <h3 className="mb-4 font-bold text-foreground">Price range</h3>
-        <p className="mb-4 text-sm font-medium text-muted-foreground">{formatNaira(filters.priceMin)} - {formatNaira(filters.priceMax)}+ per night</p>
+        <p className="mb-4 text-sm font-medium text-muted-foreground">{formatNaira(localPriceRange[0])} - {formatNaira(localPriceRange[1])}+ per night</p>
         <Slider
-          value={[filters.priceMin, filters.priceMax]}
-          onValueChange={handlePriceChange}
+          value={localPriceRange}
+          onValueChange={setLocalPriceRange}
+          onValueCommit={handlePriceCommit}
           min={0}
           max={1000000}
           step={5000}
@@ -118,7 +120,7 @@ const Search = () => {
             >
               <Checkbox
                 checked={selectedAmenities.includes(amenity)}
-                onCheckedChange={() => handleToggleAmenity(amenity)}
+                onCheckedChange={() => toggleAmenity(amenity)}
                 className="data-[state=checked]:bg-[#F48221] data-[state=checked]:border-[#F48221] border-muted-foreground/30 shrink-0 h-5 w-5 rounded-md"
               />
               <span className="text-sm font-medium leading-tight text-foreground group-hover:text-foreground/80">{amenity}</span>
@@ -159,7 +161,7 @@ const Search = () => {
                   </SheetHeader>
 
                   <div className="flex-1 overflow-y-auto p-6 pb-32">
-                    <FiltersContent />
+                    {FiltersContent()}
                   </div>
 
                   <div className="absolute bottom-0 left-0 right-0 border-t border-border bg-card p-4 pb-8 flex gap-3">
@@ -182,7 +184,7 @@ const Search = () => {
                     <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[#F48221] hover:text-[#E36D0B] hover:bg-[#F48221]/10 font-bold h-8 px-2">Clear all</Button>
                   )}
                 </div>
-                <FiltersContent />
+                {FiltersContent()}
               </div>
             </aside>
 

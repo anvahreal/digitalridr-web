@@ -235,6 +235,7 @@ const HostDashboard = () => {
 
                   <nav className="space-y-1">
                     <NavButton icon={LayoutDashboard} label="Dashboard" active={activeTab === "overview"} onClick={() => handleTabChange("overview")} />
+                    <NavButton icon={Calendar} label="Reservations" active={activeTab === "reservations"} onClick={() => handleTabChange("reservations")} />
                     <NavButton icon={MessageSquare} label="Messages" onClick={() => navigate("/host/messages")} />
                     <NavButton icon={Wallet} label="Earnings & Wallet" active={activeTab === "wallet"} onClick={() => handleTabChange("wallet")} />
                     <NavButton icon={Home} label="Manage Listings" active={activeTab === "listings"} onClick={() => handleTabChange("listings")} />
@@ -265,6 +266,7 @@ const HostDashboard = () => {
               <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-8">
                 <TabsList className="bg-transparent h-auto p-0 gap-8 flex-nowrap overflow-x-auto border-b border-border w-full justify-start rounded-none no-scrollbar">
                   <TabsTrigger value="overview" className="tab-premium">Overview</TabsTrigger>
+                  <TabsTrigger value="reservations" className="tab-premium">Reservations</TabsTrigger>
                   <TabsTrigger value="listings" className="tab-premium">My Listings</TabsTrigger>
                   <TabsTrigger value="wallet" className="tab-premium">Wallet</TabsTrigger>
                   <TabsTrigger value="profile" className="tab-premium">Profile</TabsTrigger>
@@ -398,28 +400,81 @@ const HostDashboard = () => {
                         </div>
                         <CardContent className="p-8 relative z-10">
                           <p className="text-xs font-black uppercase tracking-widest opacity-80">Available to Payout</p>
-                          <h3 className="text-3xl font-black mt-2 tracking-tight">{formatNaira(totalRevenue || 450000)}</h3>
+                          <h3 className="text-3xl font-black mt-2 tracking-tight">{formatNaira(totalRevenue || 0)}</h3>
                           <Button onClick={() => setIsPayoutOpen(true)} className="mt-6 w-full bg-white/20 hover:bg-white/30 border-none text-white font-bold rounded-xl h-12 shadow-lg backdrop-blur-sm">
                             Withdraw Funds
                           </Button>
                         </CardContent>
                       </Card>
-
-                      <Card className="border-none shadow-sm rounded-[2.5rem] bg-card p-6 flex flex-col justify-center items-center text-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                          <ShieldCheck className="h-6 w-6 text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="font-black text-foreground text-lg">Superhost Status</p>
-                          <p className="text-xs text-muted-foreground font-medium">You are on track!</p>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2 mt-2 overflow-hidden">
-                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: '85%' }} />
-                        </div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">85% Completed</p>
-                      </Card>
                     </div>
 
+                  </div>
+                </TabsContent>
+
+                {/* --- RESERVATIONS --- */}
+                <TabsContent value="reservations" className="space-y-6 animate-in slide-in-from-bottom-4">
+                  <div>
+                    <h2 className="text-3xl font-black text-foreground tracking-tight">Reservations & Blocks</h2>
+                    <p className="text-muted-foreground font-medium italic text-sm">Manage your upcoming stays and blocked dates</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {bookings.filter(b => b.status !== "pending").length === 0 ? (
+                      <div className="text-center py-12 bg-card rounded-[2.5rem] shadow-sm border border-border">
+                        <Calendar className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+                        <p className="text-foreground font-black text-lg">No reservations found</p>
+                        <p className="text-muted-foreground font-medium text-sm mt-1">Confirmed stays and manual blocks will appear here.</p>
+                      </div>
+                    ) : (
+                      bookings.filter(b => b.status !== "pending").map(b => (
+                        <Card key={b.id} className="border-none shadow-sm rounded-[2rem] bg-card p-5">
+                          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 w-full">
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0 bg-muted">
+                                {b.listing?.images?.[0] ? (
+                                  <img src={b.listing.images[0]} className="h-full w-full object-cover" />
+                                ) : (
+                                  <Home className="h-full w-full p-3 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-bold text-foreground text-sm truncate">{b.listing?.title || "Unknown Listing"}</p>
+                                <div className="text-xs text-muted-foreground font-medium mt-0.5 flex flex-wrap items-center gap-1">
+                                  <span>{new Date(b.check_in || b.start_date).toLocaleDateString()}</span>
+                                  <span className="text-muted-foreground/50">•</span>
+                                  <span>{new Date(b.check_out || b.end_date).toLocaleDateString()}</span>
+                                  <span className="text-muted-foreground/50">•</span>
+                                  <Badge variant="outline" className={cn("text-[8px] uppercase tracking-wider py-0 px-1 border-none ml-1", 
+                                    b.status === 'confirmed' ? (b.total_price === 0 ? "bg-amber-500/10 text-amber-600" : "bg-emerald-500/10 text-emerald-600") : 
+                                    b.status === 'cancelled' ? "bg-red-500/10 text-red-600" : "bg-muted text-muted-foreground"
+                                  )}>
+                                    {b.total_price === 0 && b.status === 'confirmed' ? 'Blocked' : b.status}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs font-bold mt-1">
+                                  {b.total_price === 0 ? (
+                                    <span className="text-amber-600">Manual Calendar Block</span>
+                                  ) : (
+                                    <span>{formatNaira(b.total_price)} • {b.guests} Guests</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {b.status === 'confirmed' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleAction(b.id, 'cancelled')} 
+                                className="rounded-xl font-bold h-9 text-red-600 hover:text-red-700 hover:bg-red-50 w-full md:w-auto"
+                              >
+                                {b.total_price === 0 ? "Unblock Dates" : "Cancel Reservation"}
+                              </Button>
+                            )}
+                          </div>
+                        </Card>
+                      ))
+                    )}
                   </div>
                 </TabsContent>
 
@@ -684,7 +739,7 @@ const HostListings = ({ user }: { user: any }) => {
         status: 'confirmed',
         guests: 0,
         total_price: 0,
-        user_id: user.id // Using host's own user ID
+        guest_id: user.id // Using host's own user ID for manual block
       });
       if (error) throw error;
       toast.success("Dates blocked successfully");
