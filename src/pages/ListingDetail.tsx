@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useMessages } from "@/hooks/useMessages";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfDay } from "date-fns";
 import { cn, formatNaira } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -700,7 +700,7 @@ const ListingDetail = () => {
                           mode="single"
                           selected={checkIn}
                           onSelect={setCheckIn}
-                          disabled={(date) => date < new Date() || disabledDates.some(d => d.toDateString() === date.toDateString())}
+                          disabled={(date) => date < startOfDay(new Date()) || disabledDates.some(d => d.toDateString() === date.toDateString())}
                         />
                       </PopoverContent>
                     </Popover>
@@ -720,7 +720,7 @@ const ListingDetail = () => {
                           onSelect={setCheckOut}
                           disabled={(date) => {
                             // 1. Basic checks: Past dates, before check-in, or explicitly disabled
-                            if (date < (checkIn || new Date()) || disabledDates.some(d => d.toDateString() === date.toDateString())) {
+                            if (date < (checkIn || startOfDay(new Date())) || disabledDates.some(d => d.toDateString() === date.toDateString())) {
                               return true;
                             }
 
