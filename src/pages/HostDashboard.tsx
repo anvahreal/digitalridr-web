@@ -35,75 +35,7 @@ const HostDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [showSidebar, setShowSidebar] = useState(true);
-  const { user, profile, loading, updateProfile } = useProfile();
-
-  // Profile Form State
-  const [fullName, setFullName] = useState("");
-  const [dob, setDob] = useState("");
-  const [phone, setPhone] = useState("");
-  const [updatingProfile, setUpdatingProfile] = useState(false);
-
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [updatingAvatar, setUpdatingAvatar] = useState(false);
-
-  useEffect(() => {
-    if (profile) {
-      setFullName(profile.full_name || "");
-      setDob(profile.date_of_birth || "");
-      setPhone(profile.phone_number || "");
-      setAvatarUrl(profile.avatar_url || "");
-    }
-  }, [profile]);
-
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      setUpdatingAvatar(true);
-
-      if (!event.target.files || event.target.files.length === 0) {
-        throw new Error('You must select an image to upload.');
-      }
-
-      const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}-${Math.random()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-
-      setAvatarUrl(data.publicUrl);
-      await updateProfile({ avatar_url: data.publicUrl });
-      toast.success('Avatar updated successfully!');
-    } catch (error: any) {
-      toast.error(error.message || 'Error uploading avatar!');
-    } finally {
-      setUpdatingAvatar(false);
-    }
-  };
-
-  const handleProfileUpdate = async () => {
-    setUpdatingProfile(true);
-    try {
-      await updateProfile({
-        full_name: fullName,
-        date_of_birth: dob,
-        phone_number: phone,
-        avatar_url: avatarUrl
-      });
-      toast.success("Profile updated successfully");
-    } catch (error: any) {
-      console.error("Profile update error:", error);
-      toast.error(`Failed to update profile: ${error.message || "Unknown error"}`);
-    } finally {
-      setUpdatingProfile(false);
-    }
-  };
+  const { user, profile, loading } = useProfile();
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -239,7 +171,6 @@ const HostDashboard = () => {
                     <NavButton icon={MessageSquare} label="Messages" onClick={() => navigate("/host/messages")} />
                     <NavButton icon={Wallet} label="Earnings & Wallet" active={activeTab === "wallet"} onClick={() => handleTabChange("wallet")} />
                     <NavButton icon={Home} label="Manage Listings" active={activeTab === "listings"} onClick={() => handleTabChange("listings")} />
-                    <NavButton icon={Settings} label="Profile" active={activeTab === "profile"} onClick={() => handleTabChange("profile")} />
                   </nav>
 
                   <hr className="my-6 border-border" />
@@ -269,7 +200,6 @@ const HostDashboard = () => {
                   <TabsTrigger value="reservations" className="tab-premium">Reservations</TabsTrigger>
                   <TabsTrigger value="listings" className="tab-premium">My Listings</TabsTrigger>
                   <TabsTrigger value="wallet" className="tab-premium">Wallet</TabsTrigger>
-                  <TabsTrigger value="profile" className="tab-premium">Profile</TabsTrigger>
 
                 </TabsList>
 
@@ -547,83 +477,7 @@ const HostDashboard = () => {
                   <HostWallet />
                 </TabsContent>
 
-                {/* --- PROFILE --- */}
-                <TabsContent value="profile" className="space-y-8 animate-in slide-in-from-right-4">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                    <div>
-                      <h2 className="text-3xl font-black text-foreground tracking-tight">Profile</h2>
-                      <p className="text-muted-foreground font-medium italic text-sm">Manage account preferences</p>
-                    </div>
-                    <Button onClick={handleProfileUpdate} disabled={updatingProfile} className="w-full md:w-auto rounded-2xl bg-primary text-primary-foreground shadow-lg font-black h-12 px-10 hover:bg-primary/90">
-                      {updatingProfile ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <Card className="border-none shadow-sm rounded-[2.5rem] p-8 bg-card text-center h-fit">
-                      <div className="relative group w-32 h-32 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/20 rounded-[2.5rem] flex items-center justify-center overflow-hidden">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarUpload}
-                          disabled={updatingAvatar}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          title="Upload Avatar"
-                        />
-                        {updatingAvatar ? (
-                          <LoadingSpinner className="h-8 w-8 text-[#F48221]" />
-                        ) : avatarUrl ? (
-                          <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover border-4 border-muted transition-opacity group-hover:opacity-50" />
-                        ) : profile?.verification_status === 'verified' && profile?.selfie_url ? (
-                          <img src={profile.selfie_url} alt="Profile" className="w-full h-full object-cover border-4 border-muted transition-opacity group-hover:opacity-50" />
-                        ) : (
-                          <User className="h-12 w-12 text-[#F48221] transition-opacity group-hover:opacity-50" />
-                        )}
 
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <span className="text-white text-[10px] font-bold px-2 text-center text-balance leading-tight pt-10">Upload Avatar</span>
-                        </div>
-
-                        <Button size="icon" className="absolute -bottom-1 -right-1 rounded-xl bg-foreground h-9 w-9 border-4 border-card pointer-events-none group-hover:opacity-0 transition-opacity">
-                          <Camera className="h-4 w-4 text-background" />
-                        </Button>
-                      </div>
-                      <h3 className="font-black text-foreground text-lg">
-                        {loading ? "Loading..." : (profile?.full_name || user?.email || "Host")}
-                      </h3>
-                      <Badge variant="outline" className={cn(
-                        "mt-2 rounded-full px-3 py-0.5 text-[10px] border-border uppercase tracking-widest",
-                        profile?.verification_status === 'verified'
-                          ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
-                          : "text-muted-foreground"
-                      )}>
-                        {profile?.verification_status === 'verified' ? "Verified Host" : "Standard Host"}
-                      </Badge>
-                    </Card>
-                    <div className="md:col-span-2 space-y-6">
-                      <Card className="border-none shadow-sm rounded-[2.5rem] p-8 bg-card">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</label>
-                            <Input
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                              className="bg-muted border-none h-12 rounded-2xl px-5 font-bold text-foreground"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Email (Read Only)</label>
-                            <Input
-                              value={user?.email || ""}
-                              readOnly
-                              className="bg-muted border-none h-12 rounded-2xl px-5 font-bold text-muted-foreground cursor-not-allowed"
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    </div>
-                  </div>
-                </TabsContent>
 
               </Tabs>
             </div>
