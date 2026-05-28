@@ -35,6 +35,7 @@ import { toast } from "sonner";
 
 import { BankTransferDetails } from "@/components/BankTransferDetails";
 import { sendNotificationEmail } from "@/lib/email";
+import { BANK_DETAILS } from "@/lib/constants";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -224,6 +225,7 @@ const Checkout = () => {
 
   const processManualBooking = async () => {
     setIsVerifying(true);
+    const refCode = 'BT-' + config.reference;
     try {
       const { error } = await supabase.from('bookings').insert({
         guest_id: user.id,
@@ -234,19 +236,32 @@ const Checkout = () => {
         total_price: total,
         guests: guests,
         status: 'pending',
+        payment_reference: refCode,
+        payment_status: 'pending',
+        platform_fee: platformFee,
+        host_payout_amount: hostPayoutAmount,
         security_deposit: securityDeposit
       });
 
       if (error) throw error;
 
       setTimeout(() => {
-        toast.success("Booking request sent! Waiting for confirmation.");
+        toast.success("Booking request sent! Waiting for payment confirmation.");
 
-        // Notify Guest
+        // Notify Guest with Bank Details
         sendNotificationEmail(
           user.email,
-          "🏠 Booking Request Sent",
-          `<p>Hi ${user.full_name},</p><p>You have requested to book <b>${listing.title}</b>.</p><p>The host will review your request shortly.</p>`
+          "🏠 Booking Request Sent - Payment Required",
+          `<p>Hi ${user.full_name},</p>
+           <p>You have requested to book <b>${listing.title}</b>.</p>
+           <p>To confirm your booking, please make a bank transfer of <b>${formatNaira(total)}</b> to the platform account:</p>
+           <div style="background-color: #f7f7f7; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #e2e8f0;">
+             <p style="margin: 4px 0;"><b>Bank Name:</b> ${BANK_DETAILS.bankName}</p>
+             <p style="margin: 4px 0;"><b>Account Number:</b> ${BANK_DETAILS.accountNumber}</p>
+             <p style="margin: 4px 0;"><b>Account Name:</b> ${BANK_DETAILS.accountName}</p>
+             <p style="margin: 4px 0; color: #F48221;"><b>Payment Reference:</b> ${refCode}</p>
+           </div>
+           <p>Our administrators will verify your payment and confirm your booking shortly.</p>`
         );
 
         navigate("/dashboard");

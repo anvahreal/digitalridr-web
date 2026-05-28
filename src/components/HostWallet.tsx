@@ -160,21 +160,12 @@ const HostWallet = () => {
                       </Badge>
                     </div>
 
-                    {/* Actions Row - Only for Pending (Quick Action) */}
+                    {/* Actions Row - Only for Pending (Awaiting Admin Verification indicator) */}
                     {tx.status === 'pending' && (
-                      <div className="flex justify-start sm:justify-end gap-3 mt-1 w-full" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleAction(tx.id, 'confirmed')}
-                          className="flex-1 sm:flex-none px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-xl transition-colors shadow-sm"
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => handleAction(tx.id, 'cancelled')}
-                          className="flex-1 sm:flex-none px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold rounded-xl transition-colors shadow-sm"
-                        >
-                          Reject
-                        </button>
+                      <div className="flex justify-start sm:justify-end mt-1 w-full">
+                        <span className="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                          Awaiting Admin Verification
+                        </span>
                       </div>
                     )}
                   </div>
@@ -227,19 +218,10 @@ const HostWallet = () => {
 
                   {/* Actions (if pending) */}
                   {tx.status === 'pending' && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => handleAction(tx.id, 'confirmed')}
-                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-500/20"
-                      >
-                        Accept Booking
-                      </button>
-                      <button
-                        onClick={() => handleAction(tx.id, 'cancelled')}
-                        className="w-full py-3 bg-red-100 hover:bg-red-200 text-red-600 font-bold rounded-xl transition-colors"
-                      >
-                        Decline
-                      </button>
+                    <div className="bg-amber-500/10 p-4 rounded-xl border border-amber-500/20 text-center">
+                      <p className="text-xs text-amber-700 dark:text-amber-400 font-bold">
+                        Awaiting Admin Payment Verification. Funds will be credited once approved.
+                      </p>
                     </div>
                   )}
                 </div>

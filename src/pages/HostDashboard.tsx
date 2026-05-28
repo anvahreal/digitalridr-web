@@ -212,11 +212,11 @@ const HostDashboard = () => {
                       <div className="p-4 md:p-6">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                            <AlertCircle className="h-5 w-5 text-amber-600" />
+                            <Clock className="h-5 w-5 text-amber-600" />
                           </div>
                           <div>
                             <h3 className="text-lg font-black text-amber-900 dark:text-amber-500 leading-tight">Pending Requests</h3>
-                            <p className="text-xs font-bold text-amber-700/70 uppercase tracking-wide">Action Required</p>
+                            <p className="text-xs font-bold text-amber-700/70 uppercase tracking-wide">Awaiting Admin Payment Approval</p>
                           </div>
                         </div>
                         <div className="space-y-3">
@@ -253,9 +253,10 @@ const HostDashboard = () => {
                                     <p className="text-sm font-black text-foreground mt-1">{formatNaira(b.total_price)}</p>
                                   </div>
                                 </div>
-                                <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                  <Button onClick={() => handleAction(b.id, 'confirmed')} className="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl h-10 shadow-lg shadow-emerald-500/20 px-6">Accept</Button>
-                                  <Button onClick={() => handleAction(b.id, 'cancelled')} variant="destructive" className="flex-1 sm:flex-none font-bold rounded-xl h-10 px-6">Reject</Button>
+                                <div className="flex w-full sm:w-auto mt-2 sm:mt-0 items-center">
+                                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400 font-bold rounded-xl px-4 py-2 border-none flex items-center gap-1.5">
+                                    <Clock className="h-3.5 w-3.5" /> Awaiting Admin Approval
+                                  </Badge>
                                 </div>
                               </div>
                             </div>

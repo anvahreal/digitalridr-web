@@ -21,7 +21,8 @@ import {
     MapPin,
     ShieldCheck,
     FileText,
-    ExternalLink
+    ExternalLink,
+    CreditCard
 } from "lucide-react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -326,6 +327,94 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleApprovePayment = async (booking: any) => {
+        try {
+            toast.info("Approving payment and updating booking...");
+            // 1. Update Booking
+            const { error: bookingError } = await supabase
+                .from('bookings')
+                .update({ status: 'confirmed', payment_status: 'paid' })
+                .eq('id', booking.id);
+            if (bookingError) throw bookingError;
+
+            // 2. Fetch current wallet balance of the host
+            const { data: profileData, error: profileFetchError } = await supabase
+                .from('profiles')
+                .select('wallet_balance')
+                .eq('id', booking.host_id)
+                .single();
+            if (profileFetchError) throw profileFetchError;
+
+            const currentBalance = profileData?.wallet_balance || 0;
+            const newBalance = Number(currentBalance) + Number(booking.host_payout_amount || 0);
+
+            // 3. Update host wallet
+            const { error: walletError } = await supabase
+                .from('profiles')
+                .update({ wallet_balance: newBalance })
+                .eq('id', booking.host_id);
+            if (walletError) throw walletError;
+
+            toast.success("Payment approved! Booking confirmed & host wallet credited.");
+
+            // 4. Send Email Notification to guest
+            const guest = hosts.find(h => h.id === booking.guest_id);
+            const listing = listings.find(l => l.id === booking.listing_id);
+            if (guest?.email) {
+                const subject = "✅ Booking Confirmed!";
+                const html = `<p>Hi ${guest.full_name},</p>
+                              <p>Your payment has been verified and your booking for <b>${listing?.title || 'property'}</b> is confirmed!</p>
+                              <p>Passcode/Reference: <b>${booking.payment_reference || 'N/A'}</b></p>
+                              <p>Dates: <b>${new Date(booking.check_in).toLocaleDateString()} - ${new Date(booking.check_out).toLocaleDateString()}</b></p>`;
+                sendNotificationEmail(guest.email, subject, html);
+            }
+
+            // 5. Send Email Notification to host
+            const host = hosts.find(h => h.id === booking.host_id);
+            if (host?.email) {
+                const subject = "🏠 New Booking Confirmed!";
+                const html = `<p>Hi ${host.full_name},</p>
+                              <p>Good news! The platform has verified the payment for your listing: <b>${listing?.title || 'property'}</b>.</p>
+                              <p>The booking is now confirmed. The payout amount of <b>${formatNaira(booking.host_payout_amount)}</b> has been added to your wallet balance.</p>`;
+                sendNotificationEmail(host.email, subject, html);
+            }
+
+            fetchData();
+        } catch (err: any) {
+            console.error("Approve payment error:", err);
+            toast.error(err.message || "Failed to approve payment");
+        }
+    };
+
+    const handleRejectPayment = async (booking: any) => {
+        try {
+            toast.info("Rejecting payment...");
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'cancelled', payment_status: 'rejected' })
+                .eq('id', booking.id);
+            if (error) throw error;
+
+            toast.success("Payment request rejected. Booking cancelled.");
+
+            // Send Email Notification to guest
+            const guest = hosts.find(h => h.id === booking.guest_id);
+            const listing = listings.find(l => l.id === booking.listing_id);
+            if (guest?.email) {
+                const subject = "❌ Booking Payment Rejected";
+                const html = `<p>Hi ${guest.full_name},</p>
+                              <p>We were unable to verify your payment for the booking at <b>${listing?.title || 'property'}</b>.</p>
+                              <p>As a result, your booking request has been rejected/cancelled. Please check your transaction details or contact support.</p>`;
+                sendNotificationEmail(guest.email, subject, html);
+            }
+
+            fetchData();
+        } catch (err: any) {
+            console.error("Reject payment error:", err);
+            toast.error(err.message || "Failed to reject payment");
+        }
+    };
+
     if (loading || profileLoading) return <div className="flex h-screen items-center justify-center">Loading God Mode...</div>;
     if (!isAdmin) return null;
 
@@ -342,6 +431,7 @@ const AdminDashboard = () => {
                 <nav className="flex-1 p-4 space-y-2">
                     <MenuButton icon={LayoutDashboard} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
                     <MenuButton icon={Users} label="Hosts & Users" active={activeTab === 'hosts'} onClick={() => setActiveTab('hosts')} />
+                    <MenuButton icon={CreditCard} label="Payments" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
                     <MenuButton icon={Wallet} label="Payouts" active={activeTab === 'payouts'} onClick={() => setActiveTab('payouts')} />
                     <MenuButton icon={ShieldCheck} label="Verifications" active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')} />
                     <MenuButton icon={MessageSquare} label="Messages" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} />
@@ -453,6 +543,7 @@ const AdminDashboard = () => {
                                 <nav className="flex-1 p-4 space-y-2">
                                     <MenuButton icon={LayoutDashboard} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
                                     <MenuButton icon={Users} label="Hosts & Users" active={activeTab === 'hosts'} onClick={() => setActiveTab('hosts')} />
+                                    <MenuButton icon={CreditCard} label="Payments" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
                                     <MenuButton icon={Wallet} label="Payouts" active={activeTab === 'payouts'} onClick={() => setActiveTab('payouts')} />
                                     <MenuButton icon={ShieldCheck} label="Verifications" active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')} />
                                     <MenuButton icon={MessageSquare} label="Messages" active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} />
@@ -785,6 +876,85 @@ const AdminDashboard = () => {
                                                 })}
                                             </tbody>
                                         </table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        {/* PAYMENTS Verification TAB */}
+                        <TabsContent value="payments" className="animate-in fade-in">
+                            <Card className="bg-card border-border text-foreground">
+                                <CardHeader>
+                                    <CardTitle>Booking Payments Verification</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {bookings.filter(b => b.payment_status === 'pending' || b.status === 'pending').length === 0 ? (
+                                            <div className="text-center py-12 text-muted-foreground">
+                                                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                                                <p>No pending booking payments found.</p>
+                                            </div>
+                                        ) : bookings.filter(b => b.payment_status === 'pending' || b.status === 'pending').map((b) => {
+                                            const guest = hosts.find(h => h.id === b.guest_id);
+                                            const host = hosts.find(h => h.id === b.host_id);
+                                            const listing = listings.find(l => l.id === b.listing_id);
+                                            return (
+                                                <div key={b.id} className="flex flex-col md:flex-row gap-6 p-6 border border-border rounded-2xl bg-muted/20 relative overflow-hidden">
+                                                    <div className="flex items-center gap-4 min-w-[250px]">
+                                                        <Avatar className="h-16 w-16 rounded-xl border-2 border-border">
+                                                            <AvatarImage src={guest?.avatar_url} className="object-cover" />
+                                                            <AvatarFallback>{guest?.full_name?.[0] || 'G'}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <p className="font-bold text-foreground text-lg">{guest?.full_name || 'Unknown Guest'}</p>
+                                                            <p className="text-xs text-muted-foreground font-mono">{guest?.email || 'N/A'}</p>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                Booked on: {b.created_at ? new Date(b.created_at).toLocaleDateString() : 'N/A'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Property & Host</p>
+                                                            <p className="font-bold text-foreground text-sm truncate">{listing?.title || 'Unknown Property'}</p>
+                                                            <p className="text-xs text-muted-foreground">Host: {host?.full_name || 'Unknown'}</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Payment Info</p>
+                                                            <p className="font-bold text-emerald-500 text-base">{formatNaira(b.total_price)}</p>
+                                                            <p className="text-xs font-mono text-muted-foreground">Ref: {b.payment_reference || 'None'}</p>
+                                                        </div>
+                                                        <div className="space-y-1 md:col-span-2">
+                                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Stay Dates</p>
+                                                            <p className="text-xs text-foreground font-medium">
+                                                                {new Date(b.check_in).toLocaleDateString()} to {new Date(b.check_out).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col justify-center gap-2 min-w-[150px]">
+                                                        <Button
+                                                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold"
+                                                            onClick={() => handleApprovePayment(b)}
+                                                        >
+                                                            Approve Payment
+                                                        </Button>
+                                                        <Button
+                                                            variant="destructive"
+                                                            className="font-bold"
+                                                            onClick={() => {
+                                                                if (confirm("Are you sure you want to reject this payment request?")) {
+                                                                    handleRejectPayment(b);
+                                                                }
+                                                            }}
+                                                        >
+                                                            Reject Payment
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </CardContent>
                             </Card>
