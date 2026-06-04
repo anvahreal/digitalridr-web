@@ -123,7 +123,7 @@ const Index = () => {
           <div className="container px-4 flex flex-wrap justify-between gap-6 md:gap-0">
             {[
               { icon: ShieldCheck, text: "Verified Listings", sub: "Hand-picked for quality" },
-              { icon: CreditCard, text: "Secure Payments", sub: "Safe transactions via Paystack" },
+              { icon: CreditCard, text: "Secure Payments", sub: "Safe transactions via Korapay" },
               { icon: Headphones, text: "24/7 Support", sub: "We're here to help anytime" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">

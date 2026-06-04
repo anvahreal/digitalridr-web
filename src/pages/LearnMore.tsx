@@ -58,7 +58,7 @@ const LearnMore = () => {
                             <h3 className="text-lg font-bold text-foreground">What does this cover?</h3>
                             <ul className="space-y-3">
                                 {[
-                                    "Secure payment processing via Paystack",
+                                    "Secure payment processing via Korapay",
                                     "24/7 Customer Support for hosts and guests",
                                     "Marketing to bring more guests to your listings",
                                     "Platform maintenance and new feature development"

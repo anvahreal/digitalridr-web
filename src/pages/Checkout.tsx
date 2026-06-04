@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { usePaystackPayment } from "react-paystack";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,6 @@ import {
   Info,
   Clock,
   Ban,
-  Cigarette,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -36,6 +34,53 @@ import { toast } from "sonner";
 import { BankTransferDetails } from "@/components/BankTransferDetails";
 import { sendNotificationEmail } from "@/lib/email";
 import { BANK_DETAILS } from "@/lib/constants";
+
+declare global {
+  interface Window {
+    Korapay?: {
+      initialize: (options: {
+        key: string;
+        reference: string;
+        amount: number;
+        currency: string;
+        customer: { name: string; email: string };
+        notification_url?: string;
+        narration?: string;
+        channels?: string[];
+        default_channel?: string;
+        metadata?: Record<string, string | number | boolean>;
+        merchant_bears_cost?: boolean;
+        onClose?: () => void;
+        onSuccess?: (data: { reference?: string; payment_reference?: string; status?: string }) => void;
+        onFailed?: (data: { reference?: string; status?: string }) => void;
+        onPending?: () => void;
+      }) => void;
+    };
+  }
+}
+
+const KORAPAY_SCRIPT_URL = "https://korablobstorage.blob.core.windows.net/modal-bucket/korapay-collections.min.js";
+
+const loadKorapayScript = () => new Promise<void>((resolve, reject) => {
+  if (window.Korapay) {
+    resolve();
+    return;
+  }
+
+  const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${KORAPAY_SCRIPT_URL}"]`);
+  if (existingScript) {
+    existingScript.addEventListener("load", () => resolve(), { once: true });
+    existingScript.addEventListener("error", () => reject(new Error("Korapay checkout could not be loaded.")), { once: true });
+    return;
+  }
+
+  const script = document.createElement("script");
+  script.src = KORAPAY_SCRIPT_URL;
+  script.async = true;
+  script.onload = () => resolve();
+  script.onerror = () => reject(new Error("Korapay checkout could not be loaded."));
+  document.body.appendChild(script);
+});
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -65,13 +110,19 @@ const Checkout = () => {
   const [guests, setGuests] = useState(
     parseInt(searchParams.get("guests") || "1"),
   );
-  const [paymentMethod, setPaymentMethod] = useState("bank");
+  const [paymentMethod, setPaymentMethod] = useState("korapay");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isEditingGuests, setIsEditingGuests] = useState(false);
   // Dropdown States (Manual Accordion)
   const [openSection, setOpenSection] = useState<string | null>("house-rules");
 
   const [isVerifying, setIsVerifying] = useState(false);
+  const korapayPublicKey = import.meta.env.VITE_KORAPAY_PUBLIC_KEY;
+  const korapayWebhookUrl = import.meta.env.VITE_KORAPAY_WEBHOOK_URL;
+  const paymentReference = useMemo(
+    () => `DR-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    [],
+  );
 
   if (loading) return <div className="flex h-screen items-center justify-center"><LoadingSpinner className="h-10 w-10" /></div>;
 
@@ -133,74 +184,16 @@ const Checkout = () => {
   // Host Payout = Rent - Fee
   const hostPayoutAmount = rentTotal - platformFee;
 
-  const config = {
-    reference: (new Date()).getTime().toString(),
-    email: user.email || "customer@example.com",
-    amount: total * 100, // Kobo
-    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_PLACEHOLDER_KEY',
-  };
+  const confirmKorapayBooking = (paymentReference: string) => {
+    toast.success("Payment received. Your booking will be confirmed shortly.");
 
-  // const initializePayment = usePaystackPayment(config); // Paystack functionality disabled
+    sendNotificationEmail(
+      user.email,
+      "Payment Received",
+      `<p>Hi ${user.full_name},</p><p>We received your payment for <b>${listing.title}</b>.</p><p>Your booking reference is <b>${paymentReference}</b>. We will confirm your booking once Korapay sends final payment confirmation.</p>`
+    );
 
-  const onSuccess = async (reference: any) => {
-    setIsVerifying(true);
-    try {
-      // 1. Try atomic RPC first
-      const { data, error } = await supabase.rpc('process_booking_payment', {
-        p_listing_id: listingId,
-        p_guest_id: user.id,
-        p_host_id: listing.host_id,
-        p_check_in: checkIn.toISOString(),
-        p_check_out: checkOut.toISOString(),
-        p_guests: guests,
-        p_total_price: total,
-        p_platform_fee: platformFee,
-        p_host_payout_amount: hostPayoutAmount,
-        p_payment_reference: reference.reference,
-        p_security_deposit: securityDeposit
-      });
-
-      // 2. Fallback if RPC fails (e.g. not deployed yet)
-      if (error || !data?.success) {
-        console.warn("RPC failed, using fallback insert:", error);
-        const { error: fallbackError } = await supabase.from('bookings').insert({
-          guest_id: user.id,
-          host_id: listing.host_id,
-          listing_id: listingId,
-          check_in: checkIn.toISOString(),
-          check_out: checkOut.toISOString(),
-          total_price: total,
-          guests: guests,
-          status: 'confirmed',
-          payment_reference: reference.reference,
-          platform_fee: platformFee,
-          host_payout_amount: hostPayoutAmount,
-          security_deposit: securityDeposit
-        });
-        if (fallbackError) throw fallbackError;
-      }
-
-      toast.success("Payment successful! Booking confirmed.");
-
-      // Notify Guest
-      sendNotificationEmail(
-        user.email,
-        "✅ Booking Confirmed!",
-        `<p>Hi ${user.full_name},</p><p>Your booking for <b>${listing.title}</b> is confirmed!</p><p>Pass this code at the gate: <b>${reference.reference}</b></p>`
-      );
-
-      navigate("/dashboard");
-
-    } catch (err: any) {
-      console.error("Booking error:", err);
-      toast.error(err.message || "Failed to process booking");
-      setIsVerifying(false);
-    }
-  };
-
-  const onClose = () => {
-    toast.info("Payment cancelled");
-    setIsVerifying(false);
+    navigate("/dashboard");
   };
 
   const handlePayment = () => {
@@ -216,16 +209,79 @@ const Checkout = () => {
       return;
     }
 
-    if (paymentMethod === "bank") {
+    if (paymentMethod === "korapay") {
+      processKorapayBooking();
+    } else if (paymentMethod === "bank") {
       processManualBooking();
     } else {
-      toast.error("Please select a valid payment method (Bank Transfer).");
+      toast.error("Please select a valid payment method.");
+    }
+  };
+
+  const processKorapayBooking = async () => {
+    if (!korapayPublicKey) {
+      toast.error("Korapay public key is missing. Add VITE_KORAPAY_PUBLIC_KEY to your environment.");
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      await loadKorapayScript();
+
+      window.Korapay?.initialize({
+        key: korapayPublicKey,
+        reference: paymentReference,
+        amount: total,
+        currency: "NGN",
+        customer: {
+          name: user.full_name || user.email || "DigitalRidr Guest",
+          email: user.email || "customer@example.com",
+        },
+        ...(korapayWebhookUrl ? { notification_url: korapayWebhookUrl } : {}),
+        narration: `DigitalRidr booking for ${listing.title}`,
+        channels: ["card", "bank_transfer", "pay_with_bank"],
+        default_channel: "bank_transfer",
+        metadata: {
+          booking: "digitalridr",
+          listing_id: listingId || "",
+          guest_id: user.id,
+          host_id: listing.host_id,
+          check_in: checkIn.toISOString(),
+          check_out: checkOut.toISOString(),
+          guests,
+          total_price: total,
+          platform_fee: platformFee,
+          host_payout_amount: hostPayoutAmount,
+          security_deposit: securityDeposit,
+        },
+        merchant_bears_cost: true,
+        onClose: () => {
+          toast.info("Payment cancelled");
+          setIsVerifying(false);
+        },
+        onPending: () => {
+          toast.info("Payment is still pending. We will confirm your booking once Korapay completes it.");
+          setIsVerifying(false);
+        },
+        onFailed: () => {
+          toast.error("Payment failed. Please try again or use bank transfer.");
+          setIsVerifying(false);
+        },
+        onSuccess: (data) => {
+          const reference = data?.payment_reference || data?.reference || paymentReference;
+          confirmKorapayBooking(reference);
+        },
+      });
+    } catch (err: any) {
+      console.error("Korapay error:", err);
+      toast.error(err.message || "Failed to start Korapay checkout");
+      setIsVerifying(false);
     }
   };
 
   const processManualBooking = async () => {
     setIsVerifying(true);
-    const refCode = 'BT-' + config.reference;
+    const refCode = 'BT-' + paymentReference;
     try {
       const { error } = await supabase.from('bookings').insert({
         guest_id: user.id,
@@ -363,21 +419,20 @@ const Checkout = () => {
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
                   <button
-                    disabled
-                    onClick={() => toast.info("Paystack is currently unavailable. Please use Bank Transfer.")}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border-2 py-4 transition-all opacity-50 cursor-not-allowed border-transparent bg-muted/50`}
+                    onClick={() => setPaymentMethod("korapay")}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border-2 py-4 transition-all ${paymentMethod === "korapay" ? "border-[#F48221] bg-orange-50/30" : "border-transparent bg-card shadow-sm"}`}
                   >
-                    <CreditCard className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-[11px] font-bold capitalize text-muted-foreground">Paystack (Off)</span>
+                    <CreditCard className={`h-5 w-5 ${paymentMethod === "korapay" ? "text-[#F48221]" : "text-muted-foreground"}`} />
+                    <span className="text-[11px] font-bold capitalize">Korapay</span>
                   </button>
 
-                  <RestrictedPaymentMethod active={false}>
+                  <RestrictedPaymentMethod active={false} message="Crypto payments are coming soon.">
                     <button
                       disabled
                       className={`w-full flex flex-col items-center gap-2 rounded-2xl border-2 py-4 transition-all border-border bg-muted/50`}
                     >
                       <Wallet className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-[11px] font-bold capitalize text-muted-foreground">Wallet</span>
+                      <span className="text-[11px] font-bold capitalize text-muted-foreground">Crypto</span>
                     </button>
                   </RestrictedPaymentMethod>
 
@@ -560,7 +615,7 @@ const Checkout = () => {
                     </div>
                   ) : paymentMethod === "bank"
                     ? `I have sent ${formatNaira(total)}`
-                    : `Pay ${formatNaira(total)} with Paystack`}
+                    : `Pay ${formatNaira(total)} with Korapay`}
                 </Button>
               </div>
             </div>

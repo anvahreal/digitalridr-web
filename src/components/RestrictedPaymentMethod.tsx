@@ -5,7 +5,15 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export const RestrictedPaymentMethod = ({ children, active }: { children: React.ReactNode, active: boolean }) => {
+export const RestrictedPaymentMethod = ({
+    children,
+    active,
+    message = "This payment method is currently unavailable.",
+}: {
+    children: React.ReactNode,
+    active: boolean,
+    message?: string,
+}) => {
     if (active) return <>{children}</>;
 
     return (
@@ -18,7 +26,7 @@ export const RestrictedPaymentMethod = ({ children, active }: { children: React.
                     </div>
                 </TooltipTrigger>
                 <TooltipContent className="bg-slate-900 border-none text-white font-bold text-xs">
-                    <p>This payment method is currently unavailable.</p>
+                    <p>{message}</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>

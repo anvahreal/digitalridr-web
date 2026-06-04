@@ -137,7 +137,7 @@ export function Header() {
                     asChild
                     className="rounded-xl focus:bg-accent focus:text-accent-foreground cursor-pointer"
                   >
-                    <Link to="/dashboard" className="font-black py-2">
+                    <Link to="/dashboard" className="py-2 font-medium">
                       My Stays
                     </Link>
                   </DropdownMenuItem>
