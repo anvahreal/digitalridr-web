@@ -499,7 +499,7 @@ const ListingDetail = () => {
                     Entire place hosted by {listing.host_name}
                   </h2>
                   <p className="mt-1 text-muted-foreground">
-                    {listing.max_guests} guests · {listing.bedrooms} bedroom{listing.bedrooms > 1 ? "s" : ""} · {listing.beds} bed{listing.beds > 1 ? "s" : ""} · {listing.bathrooms} bath
+                    {listing.max_guests} guests · {listing.bedrooms} bedroom{listing.bedrooms > 1 ? "s" : ""} · {/*{listing.beds} bed{listing.beds > 1 ? "s" : ""}*/}{listing.bathrooms} bath
                   </p>
                 </div>
                 <div className="relative shrink-0">

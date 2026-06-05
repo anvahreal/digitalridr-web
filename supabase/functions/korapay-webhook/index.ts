@@ -110,11 +110,27 @@ serve(async (req) => {
       });
     }
 
-    if (metadata.booking !== "digitalridr") {
-      throw new Error(data?.error || error?.message || "Failed to confirm booking");
+    if (!metadata.session_id && metadata.booking !== "digitalridr") {
+      throw new Error(data?.error || error?.message || "Failed to confirm booking: Missing session_id");
     }
 
-    const totalPrice = numberFromMetadata(metadata.total_price);
+    let sessionData = metadata;
+    
+    // If a session_id was provided, fetch the full details from booking_sessions
+    if (metadata.session_id) {
+      const { data: session, error: sessionError } = await supabase
+        .from('booking_sessions')
+        .select('*')
+        .eq('id', metadata.session_id)
+        .single();
+        
+      if (sessionError || !session) {
+        throw new Error("Invalid session_id or session not found.");
+      }
+      sessionData = session;
+    }
+
+    const totalPrice = numberFromMetadata(sessionData.total_price);
     const paidAmount = numberFromMetadata(payload.data?.amount, totalPrice);
 
     if (totalPrice <= 0 || paidAmount < totalPrice) {
@@ -122,17 +138,17 @@ serve(async (req) => {
     }
 
     const { data: createdBooking, error: createError } = await supabase.rpc("process_booking_payment", {
-      p_listing_id: metadata.listing_id,
-      p_guest_id: metadata.guest_id,
-      p_host_id: metadata.host_id,
-      p_check_in: metadata.check_in,
-      p_check_out: metadata.check_out,
-      p_guests: numberFromMetadata(metadata.guests, 1),
+      p_listing_id: sessionData.listing_id,
+      p_guest_id: sessionData.guest_id,
+      p_host_id: sessionData.host_id,
+      p_check_in: sessionData.check_in,
+      p_check_out: sessionData.check_out,
+      p_guests: numberFromMetadata(sessionData.guests, 1),
       p_total_price: totalPrice,
-      p_platform_fee: numberFromMetadata(metadata.platform_fee),
-      p_host_payout_amount: numberFromMetadata(metadata.host_payout_amount),
+      p_platform_fee: numberFromMetadata(sessionData.platform_fee),
+      p_host_payout_amount: numberFromMetadata(sessionData.host_payout_amount),
       p_payment_reference: reference,
-      p_security_deposit: numberFromMetadata(metadata.security_deposit),
+      p_security_deposit: numberFromMetadata(sessionData.security_deposit),
     });
 
     if (createError || !createdBooking?.success) {

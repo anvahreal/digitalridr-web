@@ -226,6 +226,24 @@ const Checkout = () => {
 
     setIsVerifying(true);
     try {
+      // 1. Insert into temporary booking_sessions table instead of bookings
+      const { data: sessionData, error: dbError } = await supabase.from('booking_sessions').insert({
+        guest_id: user.id,
+        host_id: listing.host_id,
+        listing_id: listingId,
+        check_in: checkIn.toISOString(),
+        check_out: checkOut.toISOString(),
+        total_price: total,
+        guests: guests,
+        platform_fee: platformFee,
+        host_payout_amount: hostPayoutAmount,
+        security_deposit: securityDeposit
+      }).select().single();
+
+      if (dbError || !sessionData) {
+        throw new Error(dbError?.message || "Failed to create booking session");
+      }
+
       await loadKorapayScript();
 
       window.Korapay?.initialize({
@@ -238,23 +256,11 @@ const Checkout = () => {
           email: user.email || "customer@example.com",
         },
         ...(korapayWebhookUrl ? { notification_url: korapayWebhookUrl } : {}),
-        narration: `DigitalRidr booking for ${listing.title}`,
-        channels: ["card", "bank_transfer", "pay_with_bank"],
-        default_channel: "bank_transfer",
+        narration: `Booking: ${listing.title}`.substring(0, 45),
+        channels: ["card", "bank_transfer"],
         metadata: {
-          booking: "digitalridr",
-          listing_id: listingId || "",
-          guest_id: user.id,
-          host_id: listing.host_id,
-          check_in: checkIn.toISOString(),
-          check_out: checkOut.toISOString(),
-          guests,
-          total_price: total,
-          platform_fee: platformFee,
-          host_payout_amount: hostPayoutAmount,
-          security_deposit: securityDeposit,
+          session_id: sessionData.id
         },
-        merchant_bears_cost: true,
         onClose: () => {
           toast.info("Payment cancelled");
           setIsVerifying(false);
