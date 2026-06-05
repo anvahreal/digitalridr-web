@@ -65,14 +65,29 @@ serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!korapaySecretKey || !supabaseUrl || !supabaseServiceRoleKey) {
+      console.error("Missing env vars:", {
+        hasSecret: !!korapaySecretKey,
+        hasUrl: !!supabaseUrl,
+        hasServiceKey: !!supabaseServiceRoleKey,
+      });
       throw new Error("Missing webhook environment variables");
     }
 
     const payload = await req.json();
+    console.log("Webhook received:", JSON.stringify({
+      event: payload.event || payload.type,
+      status: payload.data?.status,
+      reference: payload.data?.payment_reference || payload.data?.reference,
+      amount: payload.data?.amount,
+      hasMetadata: !!payload.data?.metadata,
+      sessionId: payload.data?.metadata?.session_id,
+    }));
+
     const signature = req.headers.get("x-korapay-signature") || "";
     const expectedSignature = await signKorapayData(payload.data, korapaySecretKey);
 
     if (!safeEqual(signature, expectedSignature)) {
+      console.error("Signature mismatch — rejecting webhook");
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -85,6 +100,7 @@ serve(async (req) => {
     const metadata = payload.data?.metadata || {};
 
     if (event !== "charge.success" && status !== "success" && status !== "successful") {
+      console.log("Ignoring non-success event:", event, status);
       return new Response(JSON.stringify({ received: true, ignored: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -92,6 +108,7 @@ serve(async (req) => {
     }
 
     if (!reference) {
+      console.error("Missing payment reference in webhook payload");
       return new Response(JSON.stringify({ error: "Missing payment reference" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -99,17 +116,28 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // Path 1: Try to confirm an existing booking by reference
+    // (covers: frontend already created it, or bank transfer booking)
+    console.log("Attempting confirm_booking_payment_by_reference:", reference);
     const { data, error } = await supabase.rpc("confirm_booking_payment_by_reference", {
       p_payment_reference: reference,
     });
 
     if (!error && data?.success) {
+      console.log("Booking confirmed via reference lookup:", JSON.stringify(data));
       return new Response(JSON.stringify({ received: true, data }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log("Reference lookup didn't find booking, trying session path...", {
+      rpcError: error?.message,
+      rpcData: data,
+    });
+
+    // Path 2: Fall back to creating from booking_sessions
     if (!metadata.session_id && metadata.booking !== "digitalridr") {
       throw new Error(data?.error || error?.message || "Failed to confirm booking: Missing session_id");
     }
@@ -118,6 +146,7 @@ serve(async (req) => {
     
     // If a session_id was provided, fetch the full details from booking_sessions
     if (metadata.session_id) {
+      console.log("Fetching booking_session:", metadata.session_id);
       const { data: session, error: sessionError } = await supabase
         .from('booking_sessions')
         .select('*')
@@ -125,8 +154,10 @@ serve(async (req) => {
         .single();
         
       if (sessionError || !session) {
+        console.error("Session fetch failed:", sessionError?.message);
         throw new Error("Invalid session_id or session not found.");
       }
+      console.log("Session found, creating booking from session data");
       sessionData = session;
     }
 
@@ -134,9 +165,12 @@ serve(async (req) => {
     const paidAmount = numberFromMetadata(payload.data?.amount, totalPrice);
 
     if (totalPrice <= 0 || paidAmount < totalPrice) {
+      console.error("Amount mismatch:", { totalPrice, paidAmount });
       throw new Error("Paid amount does not match booking total");
     }
 
+    // This RPC is now idempotent — if frontend already created the booking, it returns success
+    console.log("Calling process_booking_payment (idempotent)...");
     const { data: createdBooking, error: createError } = await supabase.rpc("process_booking_payment", {
       p_listing_id: sessionData.listing_id,
       p_guest_id: sessionData.guest_id,
@@ -152,15 +186,18 @@ serve(async (req) => {
     });
 
     if (createError || !createdBooking?.success) {
+      console.error("process_booking_payment failed:", createError?.message, createdBooking);
       throw new Error(createdBooking?.error || createError?.message || "Failed to create paid booking");
     }
+
+    console.log("Booking created/confirmed via webhook:", JSON.stringify(createdBooking));
 
     return new Response(JSON.stringify({ received: true, data: createdBooking }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("Korapay webhook error:", error);
+    console.error("Korapay webhook error:", error.message, error.stack);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

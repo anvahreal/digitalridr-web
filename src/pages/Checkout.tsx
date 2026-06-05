@@ -184,14 +184,45 @@ const Checkout = () => {
   // Host Payout = Rent - Fee
   const hostPayoutAmount = rentTotal - platformFee;
 
-  const confirmKorapayBooking = (paymentReference: string) => {
-    toast.success("Payment received. Your booking will be confirmed shortly.");
+  const confirmKorapayBooking = async (ref: string) => {
+    try {
+      // Directly create the booking via RPC (don't rely solely on webhook)
+      const { data, error } = await supabase.rpc("process_booking_payment", {
+        p_listing_id: listingId,
+        p_guest_id: user.id,
+        p_host_id: listing.host_id,
+        p_check_in: format(checkIn, "yyyy-MM-dd"),
+        p_check_out: format(checkOut, "yyyy-MM-dd"),
+        p_guests: guests,
+        p_total_price: total,
+        p_platform_fee: platformFee,
+        p_host_payout_amount: hostPayoutAmount,
+        p_payment_reference: ref,
+        p_security_deposit: securityDeposit,
+      });
 
-    sendNotificationEmail(
-      user.email,
-      "Payment Received",
-      `<p>Hi ${user.full_name},</p><p>We received your payment for <b>${listing.title}</b>.</p><p>Your booking reference is <b>${paymentReference}</b>. We will confirm your booking once Korapay sends final payment confirmation.</p>`
-    );
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Booking creation failed");
+      }
+
+      toast.success("Payment confirmed! Your booking is confirmed. 🎉");
+
+      sendNotificationEmail(
+        user.email,
+        "✅ Booking Confirmed!",
+        `<p>Hi ${user.full_name},</p><p>Your payment for <b>${listing.title}</b> has been confirmed!</p><p>Your booking reference is <b>${ref}</b>.</p><p>Check-in: ${format(checkIn, "MMMM d, yyyy")}</p><p>Check-out: ${format(checkOut, "MMMM d, yyyy")}</p>`
+      );
+    } catch (err: any) {
+      // If RPC fails (e.g. webhook already created it, or network issue), still navigate
+      console.error("Frontend booking creation failed (webhook may handle it):", err);
+      toast.success("Payment received. Your booking will be confirmed shortly.");
+
+      sendNotificationEmail(
+        user.email,
+        "Payment Received",
+        `<p>Hi ${user.full_name},</p><p>We received your payment for <b>${listing.title}</b>.</p><p>Your booking reference is <b>${ref}</b>. We will confirm your booking once payment is fully verified.</p>`
+      );
+    }
 
     navigate("/dashboard");
   };
