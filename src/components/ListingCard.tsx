@@ -132,7 +132,7 @@ export function ListingCard({ listing, className }: ListingCardProps) {
           {listing.title}
         </p>
         <p className="text-sm text-muted-foreground">
-          {listing.bedrooms} bedroom{listing.bedrooms > 1 ? "s" : ""} · {listing.beds} bed{listing.beds > 1 ? "s" : ""}
+          {listing.bedrooms} bedroom{listing.bedrooms > 1 ? "s" : ""}
         </p>
         <p className="pt-1">
           <span className="font-semibold">{formatNaira(listing.price_per_night)}</span>
