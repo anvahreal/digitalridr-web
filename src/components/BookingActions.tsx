@@ -13,10 +13,16 @@ import { Printer, AlertTriangle, Ban, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useState } from "react";
+import { useMessages } from "@/hooks/useMessages";
+import { useNavigate } from "react-router-dom";
+import { useProfile } from "@/hooks/useProfile";
 
 // --- MANAGE BOOKING DIALOG ---
 export const ManageBookingDialog = ({ booking, open, onOpenChange, onUpdate, profile }: any) => {
     const [loading, setLoading] = useState(false);
+    const { contactSupport } = useMessages();
+    const navigate = useNavigate();
+    const { user } = useProfile();
 
     const handleCancel = async () => {
         setLoading(true);
@@ -28,6 +34,33 @@ export const ManageBookingDialog = ({ booking, open, onOpenChange, onUpdate, pro
 
             if (error) throw error;
             toast.success("Booking cancelled successfully.");
+            
+            if (booking.payment_status === 'paid') {
+                toast.info("Since this booking was paid, you can request a refund.", {
+                    action: {
+                        label: 'Chat for Refund',
+                        onClick: async () => {
+                            try {
+                                const chatId = await contactSupport();
+                                await supabase.from('messages').insert({
+                                    conversation_id: chatId,
+                                    sender_id: user?.id,
+                                    content: `Hi Admin, I just cancelled my booking (REF-${booking.id.split('-')[0].toUpperCase()}) and would like to request a refund.`
+                                });
+                                await supabase.from('conversations').update({
+                                    last_message: `Hi Admin, I just cancelled my booking (REF-${booking.id.split('-')[0].toUpperCase()}) and would like to request a refund.`,
+                                    updated_at: new Date().toISOString()
+                                }).eq('id', chatId);
+                                navigate('/messages', { state: { selectedChatId: chatId } });
+                            } catch (err: any) {
+                                toast.error(err.message);
+                            }
+                        }
+                    },
+                    duration: 10000,
+                });
+            }
+
             onUpdate();
             onOpenChange(false);
         } catch (err: any) {
@@ -56,9 +89,39 @@ export const ManageBookingDialog = ({ booking, open, onOpenChange, onUpdate, pro
                     </div>
 
                     {booking.status === 'cancelled' && (
-                        <div className="p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3">
-                            <Ban className="h-5 w-5" />
-                            <span className="font-bold">This booking is cancelled.</span>
+                        <div className="p-4 bg-red-50 text-red-600 rounded-xl space-y-3">
+                            <div className="flex items-center gap-3">
+                                <Ban className="h-5 w-5" />
+                                <span className="font-bold">This booking is cancelled.</span>
+                            </div>
+                            {booking.payment_status === 'paid' && (
+                                <div className="pt-2 border-t border-red-200/50">
+                                    <p className="text-xs text-red-800 mb-2">You paid for this booking. You can contact support to request a refund.</p>
+                                    <Button
+                                      size="sm"
+                                      className="w-full font-bold bg-red-600 hover:bg-red-700 text-white"
+                                      onClick={async () => {
+                                        try {
+                                          const chatId = await contactSupport();
+                                          await supabase.from('messages').insert({
+                                              conversation_id: chatId,
+                                              sender_id: user?.id,
+                                              content: `Hi Admin, I would like to request a refund for my cancelled booking: REF-${booking.id.split('-')[0].toUpperCase()}.`
+                                          });
+                                          await supabase.from('conversations').update({
+                                              last_message: `Hi Admin, I would like to request a refund for my cancelled booking: REF-${booking.id.split('-')[0].toUpperCase()}.`,
+                                              updated_at: new Date().toISOString()
+                                          }).eq('id', chatId);
+                                          navigate('/messages', { state: { selectedChatId: chatId } });
+                                        } catch (err: any) {
+                                          toast.error(err.message);
+                                        }
+                                      }}
+                                    >
+                                      Chat for Refund
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 

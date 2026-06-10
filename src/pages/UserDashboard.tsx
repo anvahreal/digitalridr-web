@@ -49,6 +49,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("stays");
+  const [bookingFilter, setBookingFilter] = useState<"upcoming" | "past">("upcoming");
   const { contactSupport } = useMessages();
   const { user, profile, loading, updateProfile } = useProfile();
   const { bookings, loading: bookingsLoading } = useUserBookings();
@@ -309,11 +310,21 @@ const UserDashboard = () => {
               {/* STAYS TAB */}
               {activeTab === "stays" && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-black text-foreground">My Bookings</h2>
                     <div className="flex bg-muted p-1 rounded-xl">
-                      <button className="px-4 py-1.5 rounded-lg bg-background shadow-sm text-xs font-bold text-foreground transition-all">Upcoming</button>
-                      <button className="px-4 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-foreground transition-all">Past</button>
+                      <button
+                        onClick={() => setBookingFilter("upcoming")}
+                        className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", bookingFilter === "upcoming" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                      >
+                        Upcoming
+                      </button>
+                      <button
+                        onClick={() => setBookingFilter("past")}
+                        className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", bookingFilter === "past" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                      >
+                        Past
+                      </button>
                     </div>
                   </div>
 
@@ -335,10 +346,12 @@ const UserDashboard = () => {
                       </Button>
                     </div>
                   ) : (
-                    bookings.filter(b => b.status === "confirmed" || b.status === "pending").map((booking) => (
+                    bookings
+                      .filter(b => bookingFilter === "upcoming" ? (b.status === "confirmed" || b.status === "pending") : (b.status === "cancelled" || b.status === "completed"))
+                      .map((booking) => (
                       <div
                         key={booking.id}
-                        className="bg-card hover:bg-muted/10 border border-border/40 hover:border-border/80 rounded-[2rem] p-3 transition-all duration-300 group"
+                        className={cn("bg-card hover:bg-muted/10 border rounded-[2rem] p-3 transition-all duration-300 group", booking.status === 'cancelled' ? "opacity-80 border-red-500/20" : "border-border/40 hover:border-border/80")}
                       >
                         <div className="flex flex-col md:flex-row gap-4">
                           {/* Image Section */}
@@ -357,6 +370,14 @@ const UserDashboard = () => {
                               ) : booking.status === 'pending' ? (
                                 <Badge variant="secondary" className="bg-white/90 backdrop-blur-md text-orange-600 border-white/20 shadow-sm">
                                   Pending approval
+                                </Badge>
+                              ) : booking.status === 'cancelled' ? (
+                                <Badge variant="destructive" className="bg-red-500/90 backdrop-blur-md text-white border-white/20 shadow-sm">
+                                  Cancelled
+                                </Badge>
+                              ) : booking.status === 'completed' ? (
+                                <Badge variant="outline" className="bg-blue-50/90 backdrop-blur-md text-blue-600 border-blue-200 shadow-sm">
+                                  Completed
                                 </Badge>
                               ) : null}
                             </div>
@@ -421,6 +442,35 @@ const UserDashboard = () => {
                                       className="h-10 px-4 rounded-xl font-bold text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50 shrink-0"
                                     >
                                       Cancel Request
+                                    </Button>
+                                  )}
+
+                                  {booking.status === 'cancelled' && (booking as any).payment_status === 'paid' && (
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={async () => {
+                                        try {
+                                          const chatId = await contactSupport();
+                                          // Send automated message
+                                          await supabase.from('messages').insert({
+                                              conversation_id: chatId,
+                                              sender_id: user?.id,
+                                              content: `Hi Admin, I would like to request a refund for my cancelled booking: REF-${booking.id.split('-')[0].toUpperCase()}.`
+                                          });
+                                          await supabase.from('conversations').update({
+                                              last_message: `Hi Admin, I would like to request a refund for my cancelled booking: REF-${booking.id.split('-')[0].toUpperCase()}.`,
+                                              updated_at: new Date().toISOString()
+                                          }).eq('id', chatId);
+
+                                          navigate('/messages', { state: { selectedChatId: chatId } });
+                                        } catch (err: any) {
+                                          toast.error(err.message);
+                                        }
+                                      }}
+                                      className="h-10 px-4 rounded-xl font-bold text-xs bg-red-600 hover:bg-red-700 text-white shadow-lg shrink-0"
+                                    >
+                                      <MessageSquare className="h-4 w-4 mr-2" /> Chat for Refund
                                     </Button>
                                   )}
 
