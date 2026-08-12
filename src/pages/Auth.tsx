@@ -163,7 +163,7 @@ const Auth = () => {
                 ? "Enter your email to receive a password reset link."
                 : isLogin
                   ? "Log in to continue to Digital Ridr"
-                  : "Sign up to start your adventure in Lagos"}
+                  : "Sign up to start your adventure in Nigeria"}
             </p>
 
             {/* Social Buttons */}

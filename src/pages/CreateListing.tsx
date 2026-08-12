@@ -15,6 +15,13 @@ import { toast } from "sonner";
 import { formatNaira } from "@/lib/utils";
 import { AMENITIES } from "@/constants/amenities";
 import {
+  getAreasForStateCity,
+  getMapQuery,
+  getStateCityForArea,
+  NIGERIA_COUNTRY,
+  SUPPORTED_STATE_CITIES,
+} from "@/constants/locations";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -46,19 +53,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-
-const LAGOS_DISTRICTS = [
-  "Abule Egba", "Agidingbi", "Agege", "Ajah", "Akoka", "Alagbado", "Alapere", "Alausa", "Alimosho",
-  "Amuwo Odofin", "Anthony Village", "Apapa", "Badagry", "Banana Island", "Bariga", "Berger",
-  "Bode Thomas", "Costain", "Dolphin Estate", "Ebute Metta", "Egbeda", "Eko Atlantic", "Epe",
-  "Festac Town", "Gbagada", "Gowon Estate", "Ibeju Lekki", "Idimu", "Igando", "Ikeja GRA",
-  "Ikorodu", "Ikotun", "Ikoyi", "Ilupeju", "Ipaja", "Isolo", "Iyana Ipaja",
-  "Jakande", "Jibowu", "Ketu", "Lagos Island", "Lekki Phase 1", "Lekki Phase 2",
-  "Magodo", "Maryland", "Mile 2", "Mushin", "Obalende", "Ogba", "Ogudu", "Ojo",
-  "Ojodu", "Ojota", "Okota", "Omole Phase 1", "Omole Phase 2", "Onikan", "Onipanu", "Opebi",
-  "Oshodi", "Palmgrove", "Raji Oba", "Sangotedo", "Satellite Town", "Shomolu", "Surulere",
-  "Victoria Garden City (VGC)", "Victoria Island (VI)", "Yaba"
-].sort();
 
 const CreateListing = () => {
   const navigate = useNavigate();
@@ -109,7 +103,7 @@ const CreateListing = () => {
       return;
     }
 
-    const message = `Hi Digital Ridr, I'm interested in hosting a ${interestData.propertyType} in ${interestData.location || "Lagos"}. My name is ${interestData.name} (${interestData.phone}). Can you guide me?`;
+    const message = `Hi Digital Ridr, I'm interested in hosting a ${interestData.propertyType} in ${interestData.location || "Nigeria"}. My name is ${interestData.name} (${interestData.phone}). Can you guide me?`;
     window.open(`https://wa.me/2348000000000?text=${encodeURIComponent(message)}`, '_blank');
     setInterestFormOpen(false);
     toast.success("Inquiry sent! Redirecting to WhatsApp...");
@@ -122,6 +116,7 @@ const CreateListing = () => {
     const defaultData = {
       title: "",
       description: "", // Added description
+      city: "Lagos",
       location: "",
       address: "", // Specific street address
       price: "",
@@ -181,6 +176,7 @@ const CreateListing = () => {
           setFormData({
             title: data.title,
             description: data.description || "",
+            city: data.city || getStateCityForArea(data.location),
             location: data.location,
             address: data.address || "",
             price: data.price_per_night.toString(),
@@ -315,7 +311,7 @@ const CreateListing = () => {
       toast.error("You must be logged in to host.");
       return;
     }
-    if (!formData.title || !formData.location || !formData.address || !formData.price || formData.images.length === 0) {
+    if (!formData.title || !formData.city || !formData.location || !formData.address || !formData.price || formData.images.length === 0) {
       toast.error("Please fill in all required fields (Address included) and upload at least one photo.");
       return;
     }
@@ -338,8 +334,8 @@ const CreateListing = () => {
         amenities: formData.amenities,
         house_rules: formData.house_rules.split('\n').filter(r => r.trim() !== ''), // Convert to array
         images: formData.images,
-        city: "Lagos",
-        country: "Nigeria",
+        city: formData.city,
+        country: NIGERIA_COUNTRY,
         video_url: formData.video_url,
         host_id: user.id,
         security_deposit: securityDepositValue,
@@ -388,7 +384,7 @@ const CreateListing = () => {
   };
 
   const nextStep = () => {
-    if (step === 1 && (!formData.title || !formData.price || !formData.location)) {
+    if (step === 1 && (!formData.title || !formData.price || !formData.city || !formData.location)) {
       toast.error("Please completely fill out the basics.");
       return;
     }
@@ -495,13 +491,13 @@ const CreateListing = () => {
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="location" className="font-bold">Property Location (Area)</Label>
+                      <Label htmlFor="location" className="font-bold">Property Location (State/City or Area)</Label>
                       <Input
                         id="location"
                         value={interestData.location}
                         onChange={(e) => setInterestData({ ...interestData, location: e.target.value })}
                         className="rounded-xl bg-muted/50 border-transparent h-11"
-                        placeholder="e.g. Lekki Phase 1"
+                        placeholder="e.g. Maitama, Abuja"
                       />
                     </div>
                     <div className="grid gap-2">
@@ -668,7 +664,33 @@ const CreateListing = () => {
 
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 tracking-widest">District</label>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 tracking-widest">State/City</label>
+                    <Select
+                      value={formData.city}
+                      onValueChange={(value) => {
+                        const areas = getAreasForStateCity(value);
+                        setFormData((prev) => ({
+                          ...prev,
+                          city: value,
+                          location: areas.includes(prev.location) ? prev.location : "",
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="w-full h-14 bg-muted border-none rounded-2xl px-4 font-bold text-foreground hover:bg-muted/80">
+                        <SelectValue placeholder="Select State/City..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {SUPPORTED_STATE_CITIES.map((stateCity) => (
+                          <SelectItem key={stateCity} value={stateCity}>
+                            {stateCity}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 tracking-widest">Area</label>
                     <Popover open={openDistrict} onOpenChange={setOpenDistrict}>
                       <PopoverTrigger asChild>
                         <Button
@@ -678,33 +700,33 @@ const CreateListing = () => {
                           className="w-full h-14 justify-between bg-muted border-none rounded-2xl px-4 font-bold text-foreground hover:bg-muted/80"
                         >
                           {formData.location
-                            ? LAGOS_DISTRICTS.find((dict) => dict === formData.location)
-                            : "Select District..."}
+                            ? getAreasForStateCity(formData.city).find((area) => area === formData.location)
+                            : "Select Area..."}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                         <Command>
-                          <CommandInput placeholder="Search district..." />
+                          <CommandInput placeholder="Search area..." />
                           <CommandList>
-                            <CommandEmpty>No district found.</CommandEmpty>
+                            <CommandEmpty>No area found.</CommandEmpty>
                             <CommandGroup>
-                              {LAGOS_DISTRICTS.map((dict) => (
+                              {getAreasForStateCity(formData.city).map((area) => (
                                 <CommandItem
-                                  key={dict}
-                                  value={dict}
+                                  key={area}
+                                  value={area}
                                   onSelect={() => {
-                                    handleInputChange("location", dict);
+                                    handleInputChange("location", area);
                                     setOpenDistrict(false);
                                   }}
                                 >
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      formData.location === dict ? "opacity-100" : "opacity-0"
+                                      formData.location === area ? "opacity-100" : "opacity-0"
                                     )}
                                   />
-                                  {dict}
+                                  {area}
                                 </CommandItem>
                               ))}
                             </CommandGroup>
@@ -727,7 +749,11 @@ const CreateListing = () => {
                       <iframe
                         width="100%"
                         height="100%"
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(`${formData.address || ''}, ${formData.location || ''}, Lagos, Nigeria`)}&output=embed`}
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(getMapQuery({
+                          address: formData.address,
+                          location: formData.location,
+                          city: formData.city,
+                        }))}&output=embed`}
                         title="Location Preview"
                         className="w-full h-full border-0"
                         loading="lazy"

@@ -36,6 +36,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useMessages } from "@/hooks/useMessages";
 import { format, differenceInDays, startOfDay } from "date-fns";
 import { cn, formatNaira } from "@/lib/utils";
+import { getMapQuery } from "@/constants/locations";
 import { toast } from "sonner";
 
 const getYoutubeId = (url: string) => {
@@ -396,7 +397,12 @@ const ListingDetail = () => {
                   <iframe
                     width="100%"
                     height="100%"
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(`${listing.address || ''}, ${listing.location || ''}, Lagos, Nigeria`)}&output=embed`}
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(getMapQuery({
+                      address: listing.address,
+                      location: listing.location,
+                      city: listing.city,
+                      country: listing.country,
+                    }))}&output=embed`}
                     title="Location"
                     className="w-full h-full border-0"
                     loading="lazy"

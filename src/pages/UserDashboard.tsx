@@ -618,7 +618,7 @@ const UserDashboard = () => {
                         {loading ? "Loading..." : (profile?.full_name || "Guest User")}
                       </h2>
                       <p className="text-muted-foreground font-medium mb-2">
-                        Member since {user?.created_at ? new Date(user.created_at).getFullYear() : "..."} • Lagos, Nigeria
+                        Member since {user?.created_at ? new Date(user.created_at).getFullYear() : "..."} • Nigeria
                       </p>
                       <Badge variant="outline" className={cn(
                         "rounded-full px-3 py-0.5 text-[10px] border-border uppercase tracking-widest",

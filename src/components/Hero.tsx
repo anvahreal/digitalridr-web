@@ -6,10 +6,10 @@ export function Hero() {
   const stats = [
     { icon: Star, value: "4.9", label: "Avg Rating" },
     { icon: ShieldCheck, value: "Verified", label: "Host Profiles" },
-    { icon: MapPin, value: "Lagos", label: "Mainland & Island" },
+    { icon: MapPin, value: "Nigeria", label: "Lagos & Abuja" },
     { icon: Star, value: "4.9", label: "Avg Rating" },
     { icon: ShieldCheck, value: "Verified", label: "Host Profiles" },
-    { icon: MapPin, value: "Lagos", label: "Mainland & Island" },
+    { icon: MapPin, value: "Nigeria", label: "Lagos & Abuja" },
   ];
 
   return (
@@ -30,20 +30,20 @@ export function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
-            Premium Short-lets in Lagos
+            Premium Short-lets in Nigeria
           </div>
 
           {/* Heading - Tighter leading and margin */}
           <h1 className="mb-4 md:mb-6 text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-foreground leading-[1.1]">
             Discover unique stays <br className="hidden sm:block" />
             <span className="bg-gradient-to-r from-primary via-orange-500 to-orange-400 bg-clip-text text-transparent">
-              all around Lagos.
+              across Nigeria.
             </span>
           </h1>
 
           {/* Paragraph - Reduced mb-10 to mb-8 for laptops */}
           <p className="mx-auto mb-6 md:mb-8 max-w-2xl text-sm md:text-lg lg:text-xl text-muted-foreground font-medium">
-            From the Mainland to the Island. Find your perfect getaway.
+            From Lagos to Abuja. Find your perfect getaway.
           </p>
 
           {/* Floating Glass Search Bar */}

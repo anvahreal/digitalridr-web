@@ -6,32 +6,10 @@ import { useListings } from "@/hooks/useListings";
 import { ArrowRight, ShieldCheck, Headphones, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { FEATURED_DESTINATIONS } from "@/constants/locations";
 
 const Index = () => {
   const { listings, loading } = useListings();
-
-  const neighborhoods = [
-    {
-      name: "Ikoyi",
-      count: "120+ stays",
-      img: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400",
-    },
-    {
-      name: "Lekki Phase 1",
-      count: "340+ stays",
-      img: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400",
-    },
-    {
-      name: "Victoria Island",
-      count: "80+ stays",
-      img: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=400",
-    },
-    {
-      name: "Surulere",
-      count: "45+ stays",
-      img: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400",
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -67,17 +45,17 @@ const Index = () => {
             />
           ))}
 
-          {/* Browse by Neighborhood (Restored/Static) */}
+          {/* Browse by Destination */}
           <section className="py-6">
             <div className="container px-4">
-              <h2 className="text-xl font-bold mb-6">Explore Top Neighborhoods</h2>
+              <h2 className="text-xl font-bold mb-6">Explore Top Destinations</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {neighborhoods.map((n) => (
+                {FEATURED_DESTINATIONS.map((n) => (
                   <Link to={`/search?location=${n.name}`} key={n.name} className="relative group overflow-hidden rounded-2xl aspect-[4/3]">
                     <img src={n.img} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" alt={n.name} />
                     <div className="absolute inset-0 bg-black/40 flex flex-col justify-end p-4">
                       <p className="text-white font-bold">{n.name}</p>
-                      <p className="text-white/80 text-xs">{n.count}</p>
+                      <p className="text-white/80 text-xs">{n.stateCity} • {n.count}</p>
                     </div>
                   </Link>
                 ))}
@@ -103,7 +81,7 @@ const Index = () => {
                   Share your space, <br /> earn extra income.
                 </h2>
                 <p className="mt-6 text-lg text-slate-400 font-medium">
-                  Join thousands of hosts in Lagos earning monthly by renting
+                  Join hosts across Nigeria earning monthly by renting
                   out their apartments and studios.
                 </p>
                 <Link to="/host">

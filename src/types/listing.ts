@@ -3,6 +3,7 @@ export interface Listing {
   title: string;
   description: string;
   location: string;
+  address?: string;
   city: string;
   country: string;
   price_per_night: number;

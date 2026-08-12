@@ -158,7 +158,7 @@ const HostDashboard = () => {
                   <div className="px-4 py-6 flex justify-between items-center">
                     <div>
                       <h2 className="text-xl font-black text-foreground tracking-tight">Host Hub</h2>
-                      <p className="text-xs font-bold text-muted-foreground uppercase mt-1 tracking-tighter">Lagos Luxury Mgmt</p>
+                      <p className="text-xs font-bold text-muted-foreground uppercase mt-1 tracking-tighter">Nigeria Luxury Mgmt</p>
                     </div>
                     <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setShowSidebar(false)}>
                       <X className="h-5 w-5" />

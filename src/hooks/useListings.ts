@@ -37,7 +37,7 @@ export function useListings(): UseListingsReturn {
                 let query = supabase.from('listings').select('*').order('created_at', { ascending: false });
 
                 if (filters.location) {
-                    query = query.ilike('location', `%${filters.location}%`);
+                    query = query.or(`location.ilike.%${filters.location}%,city.ilike.%${filters.location}%`);
                 }
 
                 // Note: For date availability, a more complex join with bookings would be needed.

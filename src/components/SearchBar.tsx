@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { POPULAR_DESTINATIONS } from "@/constants/locations";
 
 interface SearchBarProps {
   variant?: "hero" | "compact";
@@ -69,7 +70,7 @@ export function SearchBar({ variant = "hero", className }: SearchBarProps) {
             <div className="p-4 space-y-2">
               <h4 className="font-medium text-sm text-foreground">Popular Destinations</h4>
               <div className="grid grid-cols-1 gap-1">
-                {["Ikoyi", "Lekki Phase 1", "Victoria Island", "Ikeja", "Surulere"].map((loc) => (
+                {POPULAR_DESTINATIONS.map((loc) => (
                   <Button key={loc} variant="ghost" className="justify-start font-normal" onClick={() => { setLocation(loc); setActiveTab(null); }}>
                     <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
                     {loc}
