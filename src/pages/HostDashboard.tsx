@@ -14,6 +14,12 @@ import {
   User, Bell, Lock, Shield, Eye, EyeOff
 } from "lucide-react";
 import { formatNaira } from "@/lib/utils";
+import {
+  getBookingHostPayout,
+  getBookingRevenue,
+  getBookingViewStatus,
+  isRevenueBooking,
+} from "@/lib/bookings";
 import { useHostBookings } from "@/hooks/useHostBookings";
 import { useListings } from "@/hooks/useListings";
 import { differenceInDays } from "date-fns";
@@ -35,6 +41,7 @@ const HostDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [showSidebar, setShowSidebar] = useState(true);
+  const [reservationFilter, setReservationFilter] = useState<"active" | "ended">("active");
   const { user, profile, loading } = useProfile();
 
   const handleTabChange = (value: string) => {
@@ -117,16 +124,12 @@ const HostDashboard = () => {
   const { listings } = useListings();
 
   // Calculate Real Stats
-  const totalRevenue = bookings
-    .filter(b => b.status === 'completed' || b.status === 'confirmed')
-    .reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const revenueBookings = bookings.filter(isRevenueBooking);
+  const totalRevenue = revenueBookings.reduce((sum, b) => sum + getBookingHostPayout(b), 0);
 
   const activeStays = bookings.filter(b => {
-    const now = new Date();
-    // Use check_in/check_out as per DB schema, fallback to start_date if needed or ensuring consistency
-    const start = new Date(b.check_in || b.start_date);
-    const end = new Date(b.check_out || b.end_date);
-    return b.status === 'confirmed' && now >= start && now <= end;
+    const status = getBookingViewStatus(b);
+    return status === "active" || status === "pending";
   }).length;
 
   const myListingIds = user ? listings.filter(l => l.host_id === user.id).map(l => l.id) : [];
@@ -135,10 +138,27 @@ const HostDashboard = () => {
   // Calculate average rating across all host's listings
   const totalRating = myListings.reduce((sum, l) => sum + (l.rating || 0), 0);
   const avgRating = myListings.length > 0 ? (totalRating / myListings.length).toFixed(1) : "0.0";
+  const activeReservations = bookings.filter((booking) => {
+    const status = getBookingViewStatus(booking);
+    return status === "active" || status === "pending";
+  });
+  const endedReservations = bookings.filter((booking) => {
+    const status = getBookingViewStatus(booking);
+    return status === "ended" || status === "cancelled";
+  });
+  const listingRevenue = myListings.map((listing) => {
+    const matchingBookings = revenueBookings.filter((booking) => booking.listing_id === listing.id);
+    return {
+      ...listing,
+      bookingCount: matchingBookings.length,
+      revenue: matchingBookings.reduce((sum, booking) => sum + getBookingRevenue(booking), 0),
+      payout: matchingBookings.reduce((sum, booking) => sum + getBookingHostPayout(booking), 0),
+    };
+  }).sort((a, b) => b.payout - a.payout);
 
   const stats = [
-    { label: "Total Revenue", value: formatNaira(totalRevenue), icon: Wallet, color: "text-emerald-600" },
-    { label: "Active Stays", value: activeStays.toString(), icon: Calendar, color: "text-blue-600" },
+    { label: "Host Payout Revenue", value: formatNaira(totalRevenue), icon: Wallet, color: "text-emerald-600" },
+    { label: "Active Bookings", value: activeStays.toString(), icon: Calendar, color: "text-blue-600" },
     { label: "Avg Rating", value: avgRating, icon: Star, color: "text-amber-500" },
     { label: "Review Count", value: myListings.reduce((sum, l) => sum + (l.review_count || 0), 0).toString(), icon: TrendingUp, color: "text-purple-600" },
   ];
@@ -337,6 +357,27 @@ const HostDashboard = () => {
                           </Button>
                         </CardContent>
                       </Card>
+                      <Card className="border-none shadow-sm rounded-[2rem] bg-card">
+                        <CardContent className="p-5 space-y-4">
+                          <div>
+                            <h3 className="text-sm font-black text-foreground">Revenue by Apartment</h3>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Paid bookings only</p>
+                          </div>
+                          <div className="space-y-3">
+                            {listingRevenue.length === 0 ? (
+                              <p className="text-xs font-medium text-muted-foreground">No apartment revenue yet.</p>
+                            ) : listingRevenue.slice(0, 5).map((listing) => (
+                              <div key={listing.id} className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-foreground truncate">{listing.title}</p>
+                                  <p className="text-[10px] text-muted-foreground">{listing.bookingCount} paid booking{listing.bookingCount === 1 ? "" : "s"}</p>
+                                </div>
+                                <p className="text-xs font-black text-emerald-600 shrink-0">{formatNaira(listing.payout)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
 
                   </div>
@@ -348,16 +389,32 @@ const HostDashboard = () => {
                     <h2 className="text-3xl font-black text-foreground tracking-tight">Reservations & Blocks</h2>
                     <p className="text-muted-foreground font-medium italic text-sm">Manage your upcoming stays and blocked dates</p>
                   </div>
+                  <div className="flex bg-muted p-1 rounded-xl w-fit">
+                    <button
+                      onClick={() => setReservationFilter("active")}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", reservationFilter === "active" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      Active
+                    </button>
+                    <button
+                      onClick={() => setReservationFilter("ended")}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", reservationFilter === "ended" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      Ended
+                    </button>
+                  </div>
                   
                   <div className="space-y-4">
-                    {bookings.filter(b => b.status !== "pending").length === 0 ? (
+                    {(reservationFilter === "active" ? activeReservations : endedReservations).length === 0 ? (
                       <div className="text-center py-12 bg-card rounded-[2.5rem] shadow-sm border border-border">
                         <Calendar className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-                        <p className="text-foreground font-black text-lg">No reservations found</p>
-                        <p className="text-muted-foreground font-medium text-sm mt-1">Confirmed stays and manual blocks will appear here.</p>
+                        <p className="text-foreground font-black text-lg">No {reservationFilter} reservations found</p>
+                        <p className="text-muted-foreground font-medium text-sm mt-1">
+                          {reservationFilter === "active" ? "Pending and active stays will appear here." : "Completed, past, and cancelled stays will appear here."}
+                        </p>
                       </div>
                     ) : (
-                      bookings.filter(b => b.status !== "pending").map(b => (
+                      (reservationFilter === "active" ? activeReservations : endedReservations).map(b => (
                         <Card key={b.id} className="border-none shadow-sm rounded-[2rem] bg-card p-5">
                           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 w-full">
                             <div className="flex items-center gap-4">
@@ -376,10 +433,11 @@ const HostDashboard = () => {
                                   <span>{new Date(b.check_out || b.end_date).toLocaleDateString()}</span>
                                   <span className="text-muted-foreground/50">•</span>
                                   <Badge variant="outline" className={cn("text-[8px] uppercase tracking-wider py-0 px-1 border-none ml-1", 
+                                    getBookingViewStatus(b) === 'ended' ? "bg-blue-500/10 text-blue-600" :
                                     b.status === 'confirmed' ? (b.total_price === 0 ? "bg-amber-500/10 text-amber-600" : "bg-emerald-500/10 text-emerald-600") : 
                                     b.status === 'cancelled' ? "bg-red-500/10 text-red-600" : "bg-muted text-muted-foreground"
                                   )}>
-                                    {b.total_price === 0 && b.status === 'confirmed' ? 'Blocked' : b.status}
+                                    {getBookingViewStatus(b) === 'ended' ? 'Ended' : b.total_price === 0 && b.status === 'confirmed' ? 'Blocked' : b.status}
                                   </Badge>
                                 </div>
                                 <div className="text-xs font-bold mt-1">
@@ -392,7 +450,7 @@ const HostDashboard = () => {
                               </div>
                             </div>
                             
-                            {b.status === 'confirmed' && (
+                            {b.status === 'confirmed' && getBookingViewStatus(b) === 'active' && (
                               <Button 
                                 variant="outline" 
                                 size="sm" 

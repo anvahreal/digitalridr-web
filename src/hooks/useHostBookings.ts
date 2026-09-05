@@ -5,10 +5,16 @@ import { useProfile } from './useProfile';
 export interface Booking {
     id: string;
     listing_id: string;
+    guest_id: string;
+    host_id: string;
     user_id: string;
     check_in: string;
     check_out: string;
     total_price: number;
+    security_deposit?: number;
+    platform_fee?: number;
+    host_payout_amount?: number;
+    payment_status?: string;
     status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
     guests: number;
     created_at: string;
@@ -19,6 +25,7 @@ export interface Booking {
     };
     profiles?: {
         full_name: string;
+        email?: string;
         avatar_url: string;
         verification_status: 'unverified' | 'pending' | 'verified' | 'rejected';
     };
@@ -40,7 +47,7 @@ export function useHostBookings() {
             // NEW APPROACH: Query directly by host_id (made possible by new RLS and FKs)
             const { data: bookingsData, error: bookingsError } = await supabase
                 .from('bookings')
-                .select('*, listing:listings(title, images), profiles:guest_id(full_name, avatar_url, verification_status)')
+                .select('*, listing:listings(title, images), profiles:guest_id(full_name, email, avatar_url, verification_status)')
                 .eq('host_id', user.id)
                 .order('created_at', { ascending: false });
 

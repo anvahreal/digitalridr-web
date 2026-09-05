@@ -32,6 +32,12 @@ import { Badge } from "@/components/ui/badge";
 import { sendNotificationEmail } from "@/lib/email";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { formatNaira } from "@/lib/utils";
+import {
+    getBookingHostPayout,
+    getBookingPlatformFee,
+    getBookingRevenue,
+    isRevenueBooking,
+} from "@/lib/bookings";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ModeToggle } from "@/components/ModeToggle";
@@ -98,6 +104,30 @@ const AdminDashboard = () => {
         p.id?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const revenueBookings = bookings.filter(isRevenueBooking);
+    const revenueByApartment = filteredListings.map((listing) => {
+        const listingBookings = revenueBookings.filter((booking) => booking.listing_id === listing.id);
+        return {
+            ...listing,
+            bookingCount: listingBookings.length,
+            grossRevenue: listingBookings.reduce((sum, booking) => sum + getBookingRevenue(booking), 0),
+            platformFees: listingBookings.reduce((sum, booking) => sum + getBookingPlatformFee(booking), 0),
+            hostPayout: listingBookings.reduce((sum, booking) => sum + getBookingHostPayout(booking), 0),
+        };
+    }).filter((listing) => listing.grossRevenue > 0).sort((a, b) => b.grossRevenue - a.grossRevenue);
+
+    const revenueByHost = filteredHosts.map((host) => {
+        const hostBookings = revenueBookings.filter((booking) => booking.host_id === host.id);
+        return {
+            ...host,
+            propertyCount: listings.filter((listing) => listing.host_id === host.id).length,
+            bookingCount: hostBookings.length,
+            grossRevenue: hostBookings.reduce((sum, booking) => sum + getBookingRevenue(booking), 0),
+            platformFees: hostBookings.reduce((sum, booking) => sum + getBookingPlatformFee(booking), 0),
+            hostPayout: hostBookings.reduce((sum, booking) => sum + getBookingHostPayout(booking), 0),
+        };
+    }).filter((host) => host.grossRevenue > 0).sort((a, b) => b.grossRevenue - a.grossRevenue);
+
     useEffect(() => {
         if (!profileLoading) {
             // Failsafe: Allow specific email or DB admin flag
@@ -135,7 +165,7 @@ const AdminDashboard = () => {
             if (payout_requests) setPayouts(payout_requests);
             if (verificationsData) setVerifications(verificationsData);
 
-            const totalRevenue = bookingsData?.reduce((acc: number, curr: any) => acc + (curr.total_price || 0), 0) || 0;
+            const totalRevenue = bookingsData?.filter(isRevenueBooking).reduce((acc: number, curr: any) => acc + getBookingRevenue(curr), 0) || 0;
 
             setStats({
                 revenue: totalRevenue,
@@ -628,7 +658,7 @@ const AdminDashboard = () => {
                                     </CardHeader>
                                     <CardContent className="h-[250px] md:h-[300px] p-5 md:p-6 pt-0 md:pt-0">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={bookings.slice(0, 10).map((b, i) => ({ name: `Booking ${i + 1}`, amount: b.total_price || 0 }))}>
+                                            <AreaChart data={revenueBookings.slice(0, 10).map((b, i) => ({ name: `Paid ${i + 1}`, amount: getBookingRevenue(b) }))}>
                                                 <defs>
                                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -681,6 +711,52 @@ const AdminDashboard = () => {
                             </div>
 
                             <div className="space-y-4">
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                    <Card className="bg-card border-border/60 shadow-sm rounded-[2rem]">
+                                        <CardHeader>
+                                            <CardTitle className="text-lg font-bold">Revenue by Apartment</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            {revenueByApartment.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">No paid apartment revenue yet.</p>
+                                            ) : revenueByApartment.slice(0, 6).map((listing) => (
+                                                <div key={listing.id} className="flex items-center justify-between gap-4 rounded-xl bg-muted/30 p-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-foreground truncate">{listing.title}</p>
+                                                        <p className="text-xs text-muted-foreground">{listing.bookingCount} paid booking{listing.bookingCount === 1 ? "" : "s"} • Host payout {formatNaira(listing.hostPayout)}</p>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <p className="text-sm font-black text-emerald-600">{formatNaira(listing.grossRevenue)}</p>
+                                                        <p className="text-[10px] font-bold text-muted-foreground">fees {formatNaira(listing.platformFees)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card className="bg-card border-border/60 shadow-sm rounded-[2rem]">
+                                        <CardHeader>
+                                            <CardTitle className="text-lg font-bold">Revenue by Host</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            {revenueByHost.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">No paid host revenue yet.</p>
+                                            ) : revenueByHost.slice(0, 6).map((host) => (
+                                                <div key={host.id} className="flex items-center justify-between gap-4 rounded-xl bg-muted/30 p-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-foreground truncate">{host.full_name || host.email || "Unknown Host"}</p>
+                                                        <p className="text-xs text-muted-foreground">{host.propertyCount} propert{host.propertyCount === 1 ? "y" : "ies"} • {host.bookingCount} paid booking{host.bookingCount === 1 ? "" : "s"}</p>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <p className="text-sm font-black text-emerald-600">{formatNaira(host.grossRevenue)}</p>
+                                                        <p className="text-[10px] font-bold text-muted-foreground">payout {formatNaira(host.hostPayout)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
                                 <h3 className="text-lg font-bold">Recent Host Activity</h3>
                                 <HostTable hosts={hosts} onBan={handleBanHost} onUpdateStatus={handleUpdateHostStatus} limit={5} onViewProperties={setSelectedHost} onMessage={handleMessageHost} onDelete={handleDeleteListing} />
                             </div>

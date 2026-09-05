@@ -206,12 +206,38 @@ const Checkout = () => {
       }
 
       toast.success("Payment confirmed! Your booking is confirmed. 🎉");
+      const stayDates = `${format(checkIn, "MMMM d, yyyy")} to ${format(checkOut, "MMMM d, yyyy")}`;
+      const guestName = user.full_name || "Guest";
+      const bookingDetailsHtml = `
+        <p><b>Property:</b> ${listing.title}</p>
+        <p><b>Dates:</b> ${stayDates}</p>
+        <p><b>Guests:</b> ${guests}</p>
+        <p><b>Total:</b> ${formatNaira(total)}</p>
+        <p><b>Reference:</b> ${ref}</p>`;
 
       sendNotificationEmail(
         user.email,
         "✅ Booking Confirmed!",
-        `<p>Hi ${user.full_name},</p><p>Your payment for <b>${listing.title}</b> has been confirmed!</p><p>Your booking reference is <b>${ref}</b>.</p><p>Check-in: ${format(checkIn, "MMMM d, yyyy")}</p><p>Check-out: ${format(checkOut, "MMMM d, yyyy")}</p>`
+        `<p>Hi ${guestName},</p><p>Your payment has been confirmed and your booking is now active.</p>${bookingDetailsHtml}`
       );
+
+      supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', listing.host_id)
+        .maybeSingle()
+        .then(({ data: hostProfile }) => {
+          if (!hostProfile?.email) return;
+
+          sendNotificationEmail(
+            hostProfile.email,
+            "New Booking Confirmed",
+            `<p>Hi ${hostProfile.full_name || "Host"},</p>
+             <p>${guestName} has completed payment for <b>${listing.title}</b>.</p>
+             ${bookingDetailsHtml}
+             <p><b>Host payout:</b> ${formatNaira(hostPayoutAmount)}</p>`
+          );
+        });
     } catch (err: any) {
       // If RPC fails (e.g. webhook already created it, or network issue), still navigate
       console.error("Frontend booking creation failed (webhook may handle it):", err);
@@ -341,12 +367,21 @@ const Checkout = () => {
       setTimeout(() => {
         toast.success("Booking request sent! Waiting for payment confirmation.");
 
-        // Notify Guest with Bank Details
+        const stayDates = `${format(checkIn, "MMM d, yyyy")} to ${format(checkOut, "MMM d, yyyy")}`;
+        const guestName = user.full_name || "Guest";
+        const bookingDetailsHtml = `
+           <p><b>Property:</b> ${listing.title}</p>
+           <p><b>Dates:</b> ${stayDates}</p>
+           <p><b>Guests:</b> ${guests}</p>
+           <p><b>Total:</b> ${formatNaira(total)}</p>
+           <p><b>Payment Reference:</b> ${refCode}</p>`;
+
         sendNotificationEmail(
           user.email,
-          "🏠 Booking Request Sent - Payment Required",
-          `<p>Hi ${user.full_name},</p>
+          "Booking Request Sent - Payment Required",
+          `<p>Hi ${guestName},</p>
            <p>You have requested to book <b>${listing.title}</b>.</p>
+           ${bookingDetailsHtml}
            <p>To confirm your booking, please make a bank transfer of <b>${formatNaira(total)}</b> to the platform account:</p>
            <div style="background-color: #f7f7f7; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #e2e8f0;">
              <p style="margin: 4px 0;"><b>Bank Name:</b> ${BANK_DETAILS.bankName}</p>
@@ -356,6 +391,24 @@ const Checkout = () => {
            </div>
            <p>Our administrators will verify your payment and confirm your booking shortly.</p>`
         );
+
+        supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', listing.host_id)
+          .maybeSingle()
+          .then(({ data: hostProfile }) => {
+            if (!hostProfile?.email) return;
+
+            sendNotificationEmail(
+              hostProfile.email,
+              "New Manual Booking Request",
+              `<p>Hi ${hostProfile.full_name || "Host"},</p>
+               <p>${guestName} has requested a manual bank-transfer booking for <b>${listing.title}</b>.</p>
+               ${bookingDetailsHtml}
+               <p>The booking is pending admin payment verification. We will notify you after approval.</p>`
+            );
+          });
 
         navigate("/dashboard");
       }, 2000);

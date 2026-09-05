@@ -47,6 +47,85 @@ const numberFromMetadata = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const formatNaira = (amount: unknown) =>
+  new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(numberFromMetadata(amount));
+
+const sendEmail = async (to: string | undefined, subject: string, html: string) => {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!to || !resendApiKey) return;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "DigitalRidr <onboarding@resend.dev>",
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("Booking email failed:", await response.text());
+  }
+};
+
+const sendBookingConfirmationEmails = async (supabase: ReturnType<typeof createClient>, bookingId?: string) => {
+  if (!bookingId) return;
+
+  const { data: booking, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (error || !booking) {
+    console.error("Unable to load booking for email:", error?.message);
+    return;
+  }
+
+  const [{ data: listing }, { data: guest }, { data: host }] = await Promise.all([
+    supabase.from("listings").select("title, location").eq("id", booking.listing_id).maybeSingle(),
+    supabase.from("profiles").select("email, full_name").eq("id", booking.guest_id).maybeSingle(),
+    supabase.from("profiles").select("email, full_name").eq("id", booking.host_id).maybeSingle(),
+  ]);
+
+  const listingTitle = listing?.title || "your stay";
+  const stayDates = `${new Date(booking.check_in).toLocaleDateString("en-NG")} to ${new Date(booking.check_out).toLocaleDateString("en-NG")}`;
+  const bookingDetails = `
+    <p><b>Property:</b> ${listingTitle}</p>
+    <p><b>Location:</b> ${listing?.location || "N/A"}</p>
+    <p><b>Dates:</b> ${stayDates}</p>
+    <p><b>Guests:</b> ${booking.guests}</p>
+    <p><b>Total:</b> ${formatNaira(booking.total_price)}</p>
+    <p><b>Reference:</b> ${booking.payment_reference || booking.id}</p>`;
+
+  await Promise.all([
+    sendEmail(
+      guest?.email,
+      "Booking Confirmed",
+      `<p>Hi ${guest?.full_name || "Guest"},</p>
+       <p>Your payment is confirmed and your booking is now active.</p>
+       ${bookingDetails}`,
+    ),
+    sendEmail(
+      host?.email,
+      "New Booking Confirmed",
+      `<p>Hi ${host?.full_name || "Host"},</p>
+       <p>A guest has completed payment for your apartment.</p>
+       ${bookingDetails}
+       <p><b>Host payout:</b> ${formatNaira(booking.host_payout_amount)}</p>`,
+    ),
+  ]);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -126,6 +205,9 @@ serve(async (req) => {
 
     if (!error && data?.success) {
       console.log("Booking confirmed via reference lookup:", JSON.stringify(data));
+      if (!data.already_confirmed) {
+        await sendBookingConfirmationEmails(supabase, data.booking_id);
+      }
       return new Response(JSON.stringify({ received: true, data }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -191,6 +273,9 @@ serve(async (req) => {
     }
 
     console.log("Booking created/confirmed via webhook:", JSON.stringify(createdBooking));
+    if (!createdBooking.already_confirmed) {
+      await sendBookingConfirmationEmails(supabase, createdBooking.booking_id);
+    }
 
     return new Response(JSON.stringify({ received: true, data: createdBooking }), {
       status: 200,

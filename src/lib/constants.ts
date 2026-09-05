@@ -1,5 +1,5 @@
 export const BANK_DETAILS = {
-    bankName: "Moniepoint",
+    bankName: "Moniepoint MFB",
     accountNumber: "8161222287",
-    accountName: "Oluwaseyi Obikoya",
+    accountName: "Digital Ridr Enterprises",
 };

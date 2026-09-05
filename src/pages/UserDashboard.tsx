@@ -30,6 +30,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { formatNaira, cn } from "@/lib/utils";
+import { getBookingViewStatus } from "@/lib/bookings";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,7 +50,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("stays");
-  const [bookingFilter, setBookingFilter] = useState<"upcoming" | "past">("upcoming");
+  const [bookingFilter, setBookingFilter] = useState<"active" | "ended">("active");
   const { contactSupport } = useMessages();
   const { user, profile, loading, updateProfile } = useProfile();
   const { bookings, loading: bookingsLoading } = useUserBookings();
@@ -221,6 +222,18 @@ const UserDashboard = () => {
     setActionType('manage');
   };
 
+  const activeBookings = bookings.filter((booking) => {
+    const status = getBookingViewStatus(booking);
+    return status === "active" || status === "pending";
+  });
+
+  const endedBookings = bookings.filter((booking) => {
+    const status = getBookingViewStatus(booking);
+    return status === "ended" || status === "cancelled";
+  });
+
+  const visibleBookings = bookingFilter === "active" ? activeBookings : endedBookings;
+
   return (
     <div className="min-h-screen bg-background font-sans transition-colors duration-300">
       <Header />
@@ -235,8 +248,8 @@ const UserDashboard = () => {
               })()} 👋
             </h1>
             <p className="text-muted-foreground font-medium mt-1">
-              {bookings.filter(b => b.status === 'confirmed').length > 0
-                ? `You have ${bookings.filter(b => b.status === 'confirmed').length} upcoming bookings.`
+              {activeBookings.length > 0
+                ? `You have ${activeBookings.length} active booking${activeBookings.length === 1 ? "" : "s"}.`
                 : "No upcoming bookings."}
             </p>
           </div>
@@ -314,16 +327,16 @@ const UserDashboard = () => {
                     <h2 className="text-xl font-black text-foreground">My Bookings</h2>
                     <div className="flex bg-muted p-1 rounded-xl">
                       <button
-                        onClick={() => setBookingFilter("upcoming")}
-                        className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", bookingFilter === "upcoming" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                        onClick={() => setBookingFilter("active")}
+                        className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", bookingFilter === "active" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
                       >
-                        Upcoming
+                        Active
                       </button>
                       <button
-                        onClick={() => setBookingFilter("past")}
-                        className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", bookingFilter === "past" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                        onClick={() => setBookingFilter("ended")}
+                        className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", bookingFilter === "ended" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
                       >
-                        Past
+                        Ended
                       </button>
                     </div>
                   </div>
@@ -345,9 +358,20 @@ const UserDashboard = () => {
                         Start Searching
                       </Button>
                     </div>
+                  ) : visibleBookings.length === 0 ? (
+                    <div className="text-center py-12 bg-card rounded-3xl border border-dashed border-border">
+                      <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Calendar className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="font-bold text-foreground mb-1">
+                        No {bookingFilter} bookings
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {bookingFilter === "active" ? "Active and pending stays will appear here." : "Completed, past, and cancelled stays will appear here."}
+                      </p>
+                    </div>
                   ) : (
-                    bookings
-                      .filter(b => bookingFilter === "upcoming" ? (b.status === "confirmed" || b.status === "pending") : (b.status === "cancelled" || b.status === "completed"))
+                    visibleBookings
                       .map((booking) => (
                       <div
                         key={booking.id}
@@ -363,7 +387,11 @@ const UserDashboard = () => {
                             />
                             {/* Badges Overlay */}
                             <div className="absolute top-3 left-3 flex flex-col gap-2">
-                              {booking.status === 'confirmed' ? (
+                              {getBookingViewStatus(booking) === 'ended' && booking.status === 'confirmed' ? (
+                                <Badge variant="outline" className="bg-blue-50/90 backdrop-blur-md text-blue-600 border-blue-200 shadow-sm">
+                                  Ended
+                                </Badge>
+                              ) : booking.status === 'confirmed' ? (
                                 <Badge className="bg-white/90 backdrop-blur-md text-emerald-600 border-white/20 shadow-sm">
                                   {(booking as any).payment_status === 'paid' ? 'Paid' : 'Confirmed'}
                                 </Badge>
