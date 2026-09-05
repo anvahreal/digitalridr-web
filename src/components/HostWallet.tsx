@@ -11,6 +11,12 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useHostBookings } from "@/hooks/useHostBookings";
 import { formatNaira } from "@/lib/utils";
+import {
+  getBookingHostPayout,
+  getEligibleBookingPayout,
+  getPayoutAvailableAt,
+  isRevenueBooking,
+} from "@/lib/bookings";
 import { format, differenceInDays } from "date-fns";
 import {
   Dialog,
@@ -23,6 +29,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+
+const isReleasedPayout = (booking: any) => getEligibleBookingPayout(booking) > 0;
 
 const HostWallet = () => {
   const { bookings, loading, refetch } = useHostBookings();
@@ -48,26 +56,39 @@ const HostWallet = () => {
   const [payouts, setPayouts] = useState<any[]>([]);
 
   useEffect(() => {
-    supabase.from('payout_requests').select('*').eq('user_id', supabase.auth.getUser().then(({ data }) => data.user?.id)).then(({ data }) => {
+    const fetchPayouts = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('payout_requests')
+        .select('*')
+        .eq('user_id', user.id);
+
       if (data) setPayouts(data);
-    });
+    };
+
+    fetchPayouts();
   }, []);
 
   // Calculate Stats
-  const totalEarned = bookings
-    .filter(b => b.status === 'completed' || b.status === 'confirmed')
-    .reduce((sum, b) => sum + (b.total_price || 0), 0);
+  const revenueBookings = bookings.filter(isRevenueBooking);
+  const totalEarned = revenueBookings.reduce((sum, b) => sum + getBookingHostPayout(b), 0);
+  const releasedEarnings = revenueBookings.reduce((sum, b) => sum + getEligibleBookingPayout(b), 0);
 
   const pendingBookings = bookings
     .filter(b => b.status === 'pending')
-    .reduce((sum, b) => sum + (b.total_price || 0), 0);
+    .reduce((sum, b) => sum + getBookingHostPayout(b), 0);
+
+  const lockedEarnings = revenueBookings
+    .filter(b => !isReleasedPayout(b))
+    .reduce((sum, b) => sum + getBookingHostPayout(b), 0);
 
   const totalWithdrawn = payouts
     .filter(p => p.status === 'paid' || p.status === 'pending') // Deduct both paid and pending requests
     .reduce((sum, p) => sum + (p.amount || 0), 0);
 
-  // Available Balance: (90% of Earnings) - (Withdrawals)
-  const availableBalance = (totalEarned * 0.9) - totalWithdrawn;
+  const availableBalance = releasedEarnings - totalWithdrawn;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -87,21 +108,21 @@ const HostWallet = () => {
             {loading ? <LoadingSpinner className="h-8 w-8" /> : (
               <div className="text-3xl font-black mb-1">{formatNaira(Math.max(0, availableBalance))}</div>
             )}
-            <p className="text-[10px] text-white/70 font-bold uppercase">Ready for withdrawal</p>
+            <p className="text-[10px] text-white/70 font-bold uppercase">Bookings unlock 24h after checkout</p>
           </CardContent>
         </Card>
 
         {/* Pending Card */}
         <Card className="rounded-[2.5rem] border-none shadow-sm bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Pending (Escrow/Payouts)</CardTitle>
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">On Hold / Pending</CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
             {loading ? <LoadingSpinner className="h-8 w-8" /> : (
-              <div className="text-2xl font-black text-foreground">{formatNaira(pendingBookings + totalWithdrawn)}</div>
+              <div className="text-2xl font-black text-foreground">{formatNaira(lockedEarnings + pendingBookings + totalWithdrawn)}</div>
             )}
-            <p className="text-[10px] text-muted-foreground mt-1 font-bold">Includes processing payouts</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-bold">Includes active stays and processing payouts</p>
           </CardContent>
         </Card>
 
@@ -115,7 +136,7 @@ const HostWallet = () => {
             {loading ? <LoadingSpinner className="h-8 w-8" /> : (
               <div className="text-2xl font-black text-foreground">{formatNaira(totalEarned)}</div>
             )}
-            <p className="text-[10px] text-muted-foreground mt-1 font-bold">Gross earnings</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-bold">Host payout earnings</p>
           </CardContent>
         </Card>
       </div>
@@ -150,7 +171,7 @@ const HostWallet = () => {
                   <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto pl-14 sm:pl-0">
                     <div className="flex flex-row items-center justify-between sm:justify-end gap-3 w-full">
                       <p className={`font-black text-sm md:text-base ${tx.status === "confirmed" || tx.status === "completed" ? "text-emerald-600" : "text-foreground"}`}>
-                        +{formatNaira(tx.total_price)}
+                        +{formatNaira(getBookingHostPayout(tx))}
                       </p>
                       <Badge variant="outline" className={`rounded-full border-none text-[9px] font-black uppercase px-2 py-0.5 ${tx.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-700' :
                         tx.status === 'pending' ? 'bg-amber-500/10 text-amber-700' :
@@ -165,6 +186,13 @@ const HostWallet = () => {
                       <div className="flex justify-start sm:justify-end mt-1 w-full">
                         <span className="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
                           Awaiting Admin Verification
+                        </span>
+                      </div>
+                    )}
+                    {isRevenueBooking(tx) && !isReleasedPayout(tx) && (
+                      <div className="flex justify-start sm:justify-end mt-1 w-full">
+                        <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                          Available {getPayoutAvailableAt(tx)?.toLocaleDateString() || "after hold"}
                         </span>
                       </div>
                     )}
@@ -211,8 +239,8 @@ const HostWallet = () => {
 
                   <div className="border-t border-border pt-4">
                     <div className="flex justify-between items-center bg-muted/50 p-4 rounded-2xl">
-                      <span className="font-black text-muted-foreground text-sm">Total Payout</span>
-                      <span className="font-black text-xl text-foreground">{formatNaira(tx.total_price)}</span>
+                      <span className="font-black text-muted-foreground text-sm">Host Payout</span>
+                      <span className="font-black text-xl text-foreground">{formatNaira(getBookingHostPayout(tx))}</span>
                     </div>
                   </div>
 

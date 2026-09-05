@@ -17,6 +17,7 @@ import { formatNaira } from "@/lib/utils";
 import {
   getBookingHostPayout,
   getBookingRevenue,
+  getEligibleBookingPayout,
   getBookingViewStatus,
   isRevenueBooking,
 } from "@/lib/bookings";
@@ -75,13 +76,19 @@ const HostDashboard = () => {
   const [isPayoutOpen, setIsPayoutOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payouts, setPayouts] = useState<any[]>([]);
 
   // Fetch saved payout method
   const fetchPayoutMethod = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supabase.from('payout_methods').select('*').eq('user_id', user.id).maybeSingle();
-      setPayoutMethod(data);
+      const [{ data: method }, { data: payoutRequests }] = await Promise.all([
+        supabase.from('payout_methods').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('payout_requests').select('*').eq('user_id', user.id)
+      ]);
+
+      setPayoutMethod(method);
+      setPayouts(payoutRequests || []);
     }
   };
 
@@ -91,10 +98,18 @@ const HostDashboard = () => {
 
   // Handle Payout Request
   const handleRequestPayout = async () => {
-    if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) < 1000) {
+    const requestedAmount = Number(withdrawAmount);
+
+    if (!withdrawAmount || isNaN(requestedAmount) || requestedAmount < 1000) {
       toast.error("Minimum withdrawal is ₦1,000");
       return;
     }
+
+    if (requestedAmount > availablePayoutBalance) {
+      toast.error(`You can withdraw up to ${formatNaira(availablePayoutBalance)} right now. Payouts unlock 24 hours after checkout.`);
+      return;
+    }
+
     setPayoutLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -102,7 +117,7 @@ const HostDashboard = () => {
 
       const { error } = await supabase.from('payout_requests').insert({
         user_id: user.id,
-        amount: Number(withdrawAmount),
+        amount: requestedAmount,
         status: 'pending',
         bank_name: payoutMethod?.bank_name,
         account_number: payoutMethod?.account_number,
@@ -114,6 +129,7 @@ const HostDashboard = () => {
       toast.success("Payout request submitted!");
       setIsPayoutOpen(false);
       setWithdrawAmount("");
+      fetchPayoutMethod();
     } catch (error: any) {
       toast.error(error.message || "Failed to request payout");
     } finally {
@@ -126,6 +142,11 @@ const HostDashboard = () => {
   // Calculate Real Stats
   const revenueBookings = bookings.filter(isRevenueBooking);
   const totalRevenue = revenueBookings.reduce((sum, b) => sum + getBookingHostPayout(b), 0);
+  const eligiblePayoutTotal = revenueBookings.reduce((sum, booking) => sum + getEligibleBookingPayout(booking), 0);
+  const reservedPayoutTotal = payouts
+    .filter((payout) => payout.status === "pending" || payout.status === "paid")
+    .reduce((sum, payout) => sum + (Number(payout.amount) || 0), 0);
+  const availablePayoutBalance = Math.max(0, eligiblePayoutTotal - reservedPayoutTotal);
 
   const activeStays = bookings.filter(b => {
     const status = getBookingViewStatus(b);
@@ -351,8 +372,9 @@ const HostDashboard = () => {
                         </div>
                         <CardContent className="p-8 relative z-10">
                           <p className="text-xs font-black uppercase tracking-widest opacity-80">Available to Payout</p>
-                          <h3 className="text-3xl font-black mt-2 tracking-tight">{formatNaira(totalRevenue || 0)}</h3>
-                          <Button onClick={() => setIsPayoutOpen(true)} className="mt-6 w-full bg-white/20 hover:bg-white/30 border-none text-white font-bold rounded-xl h-12 shadow-lg backdrop-blur-sm">
+                          <h3 className="text-3xl font-black mt-2 tracking-tight">{formatNaira(availablePayoutBalance)}</h3>
+                          <p className="text-[10px] font-bold uppercase text-white/70 mt-1">Unlocks 24h after each checkout</p>
+                          <Button onClick={() => setIsPayoutOpen(true)} disabled={!payoutMethod || availablePayoutBalance < 1000} className="mt-6 w-full bg-white/20 hover:bg-white/30 border-none text-white font-bold rounded-xl h-12 shadow-lg backdrop-blur-sm disabled:opacity-50">
                             Withdraw Funds
                           </Button>
                         </CardContent>
@@ -493,7 +515,7 @@ const HostDashboard = () => {
 
                       <Dialog open={isPayoutOpen} onOpenChange={setIsPayoutOpen}>
                         <DialogTrigger asChild>
-                          <Button disabled={!payoutMethod} className="w-full md:w-auto rounded-2xl bg-foreground text-background shadow-xl font-black h-12 px-8 hover:bg-foreground/90">
+                          <Button disabled={!payoutMethod || availablePayoutBalance < 1000} className="w-full md:w-auto rounded-2xl bg-foreground text-background shadow-xl font-black h-12 px-8 hover:bg-foreground/90">
                             <Plus className="mr-2 h-4 w-4" /> Request Payout
                           </Button>
                         </DialogTrigger>
@@ -501,7 +523,7 @@ const HostDashboard = () => {
                           <DialogHeader>
                             <DialogTitle className="text-2xl font-black text-foreground">Request Withdrawal</DialogTitle>
                             <DialogDescription className="font-medium text-muted-foreground">
-                              Funds will be sent to your connected {payoutMethod?.bank_name} account.
+                              You can withdraw {formatNaira(availablePayoutBalance)} right now. Booking payouts unlock 24 hours after checkout.
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4 py-4">
@@ -509,7 +531,8 @@ const HostDashboard = () => {
                               <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Amount (₦)</label>
                               <Input
                                 type="number"
-                                placeholder="50000"
+                                placeholder={String(Math.max(1000, Math.floor(availablePayoutBalance)))}
+                                max={availablePayoutBalance}
                                 className="h-14 rounded-2xl bg-muted border-none font-black text-lg px-4 text-foreground"
                                 value={withdrawAmount}
                                 onChange={(e) => setWithdrawAmount(e.target.value)}
@@ -520,12 +543,12 @@ const HostDashboard = () => {
                                 <Plus size={12} className="text-emerald-600 dark:text-emerald-400" />
                               </div>
                               <p className="text-xs font-bold text-emerald-800 dark:text-emerald-200 leading-tight">
-                                Platform fees (5%) will be deducted automatically. Net amount will be processed within 24 hours.
+                                Only completed bookings that ended at least 24 hours ago are available for payout. Funds will be sent to your connected {payoutMethod?.bank_name} account.
                               </p>
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button onClick={handleRequestPayout} disabled={payoutLoading || !withdrawAmount} className="w-full h-14 rounded-2xl bg-foreground text-background font-black text-lg hover:bg-foreground/90">
+                            <Button onClick={handleRequestPayout} disabled={payoutLoading || !withdrawAmount || availablePayoutBalance < 1000} className="w-full h-14 rounded-2xl bg-foreground text-background font-black text-lg hover:bg-foreground/90">
                               {payoutLoading ? <LoadingSpinner className="h-4 w-4" /> : "Confirm Payout"}
                             </Button>
                           </DialogFooter>

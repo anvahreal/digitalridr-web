@@ -12,6 +12,7 @@ export type BookingLike = {
 };
 
 export type BookingViewStatus = "pending" | "active" | "ended" | "cancelled";
+export const PAYOUT_HOLD_HOURS = 24;
 
 export const getNumber = (value: number | string | null | undefined) => {
   const parsed = Number(value ?? 0);
@@ -57,3 +58,22 @@ export const getBookingPlatformFee = (booking: BookingLike) =>
 
 export const getBookingHostPayout = (booking: BookingLike) =>
   getNumber(booking.host_payout_amount) || Math.max(0, getBookingRevenue(booking) - getBookingPlatformFee(booking));
+
+export const getPayoutAvailableAt = (booking: BookingLike) => {
+  const { checkOut } = getBookingDates(booking);
+  const checkoutDate = endOfCheckoutDay(checkOut);
+
+  if (!checkoutDate) return null;
+
+  return new Date(checkoutDate.getTime() + PAYOUT_HOLD_HOURS * 60 * 60 * 1000);
+};
+
+export const isBookingPayoutEligible = (booking: BookingLike, now = new Date()) => {
+  if (!isRevenueBooking(booking)) return false;
+
+  const payoutAvailableAt = getPayoutAvailableAt(booking);
+  return !!payoutAvailableAt && payoutAvailableAt <= now;
+};
+
+export const getEligibleBookingPayout = (booking: BookingLike, now = new Date()) =>
+  isBookingPayoutEligible(booking, now) ? getBookingHostPayout(booking) : 0;
