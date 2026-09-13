@@ -46,6 +46,7 @@ import {
     AreaChart,
     CartesianGrid,
     Cell,
+    Legend,
     Pie,
     PieChart,
     ResponsiveContainer,
@@ -657,55 +658,43 @@ const AdminDashboard = () => {
                                         <CardTitle className="text-lg font-bold">Revenue Overview</CardTitle>
                                     </CardHeader>
                                     <CardContent className="h-[250px] md:h-[300px] p-5 md:p-6 pt-0 md:pt-0">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={revenueBookings.slice(0, 10).map((b, i) => ({ name: `Paid ${i + 1}`, amount: getBookingRevenue(b) }))}>
-                                                <defs>
-                                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                                <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
-                                                <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `₦${value / 1000}k`} />
-                                                <Tooltip
-                                                    contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px' }}
-                                                    itemStyle={{ color: '#fff' }}
-                                                />
-                                                <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="bg-card border-border/60 shadow-sm rounded-[2rem] hover:shadow-lg transition-all">
-                                    <CardHeader className="p-5 md:p-6">
-                                        <CardTitle className="text-lg font-bold">Properties by Location</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="h-[250px] md:h-[300px] flex items-center justify-center relative p-5 md:p-6 pt-0 md:pt-0">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie
-                                                    data={listings.reduce((acc: any[], curr) => {
-                                                        const existing = acc.find((item: any) => item.name === curr.location);
-                                                        if (existing) existing.value++;
-                                                        else acc.push({ name: curr.location, value: 1 });
-                                                        return acc;
-                                                    }, [])}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {listings.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f97316', '#a855f7', '#ec4899'][index % 5]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px' }} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                                        {(() => {
+                                            const COLORS = ['#10b981', '#3b82f6', '#f97316', '#a855f7', '#ec4899', '#06b6d4', '#f43f5e', '#eab308'];
+                                            const locationData = listings.reduce((acc: any[], curr) => {
+                                                const existing = acc.find((item: any) => item.name === curr.location);
+                                                if (existing) existing.value++;
+                                                else acc.push({ name: curr.location || 'Unknown', value: 1 });
+                                                return acc;
+                                            }, []);
+                                            return (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <PieChart>
+                                                        <Pie
+                                                            data={locationData}
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            innerRadius={50}
+                                                            outerRadius={70}
+                                                            paddingAngle={5}
+                                                            dataKey="value"
+                                                        >
+                                                            {locationData.map((_entry: any, index: number) => (
+                                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                            ))}
+                                                        </Pie>
+                                                        <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                                                        <Legend
+                                                            layout="vertical"
+                                                            align="right"
+                                                            verticalAlign="middle"
+                                                            iconType="circle"
+                                                            iconSize={8}
+                                                            wrapperStyle={{ fontSize: '11px', fontWeight: 600, lineHeight: '22px', paddingLeft: '8px' }}
+                                                        />
+                                                    </PieChart>
+                                                </ResponsiveContainer>
+                                            );
+                                        })()}
                                     </CardContent>
                                 </Card>
                             </div>
