@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useMessages } from "@/hooks/useMessages";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
+import { notifyAdmins } from "@/lib/email";
 
 // --- MANAGE BOOKING DIALOG ---
 export const ManageBookingDialog = ({ booking, open, onOpenChange, onUpdate, profile }: any) => {
@@ -34,6 +35,7 @@ export const ManageBookingDialog = ({ booking, open, onOpenChange, onUpdate, pro
 
             if (error) throw error;
             toast.success("Booking cancelled successfully.");
+            void notifyAdmins("booking_cancelled", booking.id);
             
             if (booking.payment_status === 'paid') {
                 toast.info("Since this booking was paid, you can request a refund.", {

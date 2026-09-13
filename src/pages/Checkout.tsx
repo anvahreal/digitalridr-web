@@ -32,7 +32,7 @@ import {
 import { toast } from "sonner";
 
 import { BankTransferDetails } from "@/components/BankTransferDetails";
-import { sendNotificationEmail } from "@/lib/email";
+import { notifyAdmins, sendNotificationEmail } from "@/lib/email";
 import { BANK_DETAILS } from "@/lib/constants";
 
 declare global {
@@ -346,7 +346,7 @@ const Checkout = () => {
     setIsVerifying(true);
     const refCode = 'BT-' + paymentReference;
     try {
-      const { error } = await supabase.from('bookings').insert({
+      const { data: booking, error } = await supabase.from('bookings').insert({
         guest_id: user.id,
         host_id: listing.host_id,
         listing_id: listingId,
@@ -360,9 +360,11 @@ const Checkout = () => {
         platform_fee: platformFee,
         host_payout_amount: hostPayoutAmount,
         security_deposit: securityDeposit
-      });
+      }).select('id').single();
 
-      if (error) throw error;
+      if (error || !booking) throw error || new Error("Failed to create booking");
+
+      void notifyAdmins("manual_booking", booking.id);
 
       setTimeout(() => {
         toast.success("Booking request sent! Waiting for payment confirmation.");

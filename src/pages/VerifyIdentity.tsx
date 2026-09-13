@@ -43,23 +43,6 @@ const VerifyIdentity = () => {
         }
     };
 
-    const uploadFile = async (file: File, path: string) => {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${path}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-            .from('secure-documents')
-            .upload(filePath, file);
-
-        if (uploadError) {
-            throw uploadError;
-        }
-
-        // Return the path, NOT the public URL (since bucket is private)
-        return filePath;
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -77,39 +60,24 @@ const VerifyIdentity = () => {
         console.log("Starting verification submission...");
 
         try {
-            // 1. Upload ID
-            console.log("Uploading ID...");
-            const idUrl = await uploadFile(idFile, `${user.id}/identity`);
-            console.log("ID Path:", idUrl);
+            const formData = new FormData();
+            formData.append("idDocument", idFile);
+            formData.append("selfie", selfieFile);
 
-            // 2. Upload Selfie
-            console.log("Uploading Selfie...");
-            const selfieUrl = await uploadFile(selfieFile, `${user.id}/selfie`);
-            console.log("Selfie Path:", selfieUrl);
+            const { data, error } = await supabase.functions.invoke("submit-verification", {
+                body: formData,
+            });
 
-            // 3. Update Profile - AUTO VERIFY
-            console.log("Auto-verifying user...");
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    identity_doc_url: idUrl,
-                    selfie_url: selfieUrl,
-                    verification_status: 'verified', // DIRECT AUTO-VERIFICATION
-                    verification_submitted_at: new Date().toISOString()
-                })
-                .eq('id', user.id);
-
-            if (error) {
-                console.error("Update Error:", error);
-                throw error;
+            if (error || !data?.success) {
+                throw new Error(data?.error || error?.message || "Unable to submit verification");
             }
 
-            toast.success("Verification submitted successfully!");
+            toast.success("Verification submitted! We will email you once it has been reviewed.");
             navigate("/dashboard");
 
         } catch (error: any) {
             console.error("Verification error:", error);
-            toast.error(error.message || "Failed to submit verification");
+            toast.error(error.message || "Secure document upload failed. Check your connection and try again.");
         } finally {
             setUploading(false);
         }

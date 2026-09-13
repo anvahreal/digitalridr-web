@@ -53,6 +53,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { notifyAdmins } from "@/lib/email";
 
 const CreateListing = () => {
   const navigate = useNavigate();
@@ -440,6 +441,7 @@ const CreateListing = () => {
                     onClick={async () => {
                       try {
                         await updateProfile({ host_status: 'pending' });
+                        void notifyAdmins("host_application", user.id);
                         toast.success("Application submitted! Pending approval.");
                       } catch (e: any) {
                         toast.error(`Failed to apply: ${e.message || "Unknown error"}`);
@@ -596,6 +598,7 @@ const CreateListing = () => {
                 onClick={async () => {
                   try {
                     await updateProfile({ host_status: 'pending' });
+                    void notifyAdmins("host_application", user.id);
                     toast.success("Application submitted! Pending approval.");
                   } catch (e: any) {
                     toast.error(`Failed to apply: ${e.message || "Unknown error"}`);

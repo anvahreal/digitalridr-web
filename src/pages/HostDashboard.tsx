@@ -37,6 +37,7 @@ import { supabase } from "@/lib/supabase";
 import { Landmark } from "lucide-react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useEffect } from "react";
+import { notifyAdmins } from "@/lib/email";
 
 const HostDashboard = () => {
   const navigate = useNavigate();
@@ -115,16 +116,18 @@ const HostDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from('payout_requests').insert({
+      const { data: payoutRequest, error } = await supabase.from('payout_requests').insert({
         user_id: user.id,
         amount: requestedAmount,
         status: 'pending',
         bank_name: payoutMethod?.bank_name,
         account_number: payoutMethod?.account_number,
         account_name: payoutMethod?.account_name
-      });
+      }).select('id').single();
 
-      if (error) throw error;
+      if (error || !payoutRequest) throw error || new Error("Failed to submit payout request");
+
+      void notifyAdmins("payout_request", payoutRequest.id);
 
       toast.success("Payout request submitted!");
       setIsPayoutOpen(false);

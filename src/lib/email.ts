@@ -32,3 +32,24 @@ export const sendNotificationEmail = async (
         return { success: false, error };
     }
 };
+
+/**
+ * Sends an event-based alert to the platform administrators. Recipient lookup
+ * and authorization happen inside the Edge Function, not in the browser.
+ */
+export const notifyAdmins = async (
+    event: "manual_booking" | "payout_request" | "booking_cancelled" | "host_application",
+    resourceId: string,
+) => {
+    try {
+        const { data, error } = await supabase.functions.invoke('notify-admins', {
+            body: { event, resourceId },
+        });
+
+        if (error) throw error;
+        return { success: true, data };
+    } catch (error: any) {
+        console.error("Error notifying administrators:", error);
+        return { success: false, error };
+    }
+};
