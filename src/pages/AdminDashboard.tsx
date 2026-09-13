@@ -682,7 +682,7 @@ const AdminDashboard = () => {
                                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                             ))}
                                                         </Pie>
-                                                        <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                                                        <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }} />
                                                         <Legend
                                                             layout="vertical"
                                                             align="right"
