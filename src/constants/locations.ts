@@ -74,7 +74,13 @@ export const LOCATION_AREAS = {
   ],
   Abuja: [
     "Asokoro",
+    "Abakiliki",
+    "Bwari",
+    "Ado",
+    "Karshi",
+    "Mararaba",
     "Maitama",
+    "Mabushi",
     "Wuse",
     "Wuse 2",
     "Garki",
