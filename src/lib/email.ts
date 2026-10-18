@@ -27,7 +27,7 @@ export const sendNotificationEmail = async (
         if (error) throw error;
 
         return { success: true, data };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error sending email:", error);
         return { success: false, error };
     }
@@ -38,7 +38,7 @@ export const sendNotificationEmail = async (
  * and authorization happen inside the Edge Function, not in the browser.
  */
 export const notifyAdmins = async (
-    event: "manual_booking" | "payout_request" | "booking_cancelled" | "host_application",
+    event: "new_user" | "identity_verification" | "manual_booking" | "payout_request" | "booking_cancelled" | "host_application",
     resourceId: string,
 ) => {
     try {
@@ -48,7 +48,7 @@ export const notifyAdmins = async (
 
         if (error) throw error;
         return { success: true, data };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error notifying administrators:", error);
         return { success: false, error };
     }

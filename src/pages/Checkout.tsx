@@ -172,6 +172,7 @@ const Checkout = () => {
   }
 
   const nights = Math.max(1, differenceInDays(checkOut, checkIn));
+  const maximumNights = listing.maximum_nights || 0;
   const securityDeposit = listing.security_deposit || 0;
   const total = nights * listing.price_per_night + securityDeposit;
 
@@ -254,6 +255,11 @@ const Checkout = () => {
   };
 
   const handlePayment = () => {
+    if (maximumNights > 0 && nights > maximumNights) {
+      toast.error(`This property permits stays of up to ${maximumNights} night${maximumNights === 1 ? "" : "s"}.`);
+      navigate(`/listing/${listingId}`);
+      return;
+    }
     // Verification Check
     if (user?.verification_status !== 'verified') {
       toast.error("Identity Verification Required", {

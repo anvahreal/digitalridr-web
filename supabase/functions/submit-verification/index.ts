@@ -71,9 +71,23 @@ serve(async (req) => {
       .eq("id", userId);
     if (profileError) throw profileError;
 
+    // This is a trusted server-to-server call. It is not affected by the user
+    // closing their browser immediately after uploading their documents.
+    const notificationResponse = await fetch(`${supabaseUrl}/functions/v1/notify-admins`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ event: "identity_verification", resourceId: userId }),
+    });
+    if (!notificationResponse.ok) {
+      console.error("Unable to notify administrators of verification submission:", await notificationResponse.text());
+    }
+
     return response({ success: true });
-  } catch (error: any) {
-    console.error("Verification submission error:", error.message);
+  } catch (error: unknown) {
+    console.error("Verification submission error:", error instanceof Error ? error.message : String(error));
     return response({ error: "Unable to submit verification. Please try again." }, 500);
   }
 });

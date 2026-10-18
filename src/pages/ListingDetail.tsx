@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useMessages } from "@/hooks/useMessages";
-import { format, differenceInDays, startOfDay } from "date-fns";
+import { format, differenceInDays, startOfDay, addDays } from "date-fns";
 import { cn, formatNaira } from "@/lib/utils";
 import { getMapQuery } from "@/constants/locations";
 import { toast } from "sonner";
@@ -289,6 +289,7 @@ const ListingDetail = () => {
   }
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
+  const maximumNights = listing.maximum_nights || 0;
   const subtotal = nights * listing.price_per_night;
   const securityDeposit = listing.security_deposit || 0;
   // Service fee is borne by host, so it's not added to guest total
@@ -297,6 +298,11 @@ const ListingDetail = () => {
   const handleReserve = () => {
     if (!checkIn || !checkOut) {
       toast.error("Please select check-in and check-out dates");
+      return;
+    }
+
+    if (maximumNights > 0 && differenceInDays(checkOut, checkIn) > maximumNights) {
+      toast.error(`This property permits stays of up to ${maximumNights} night${maximumNights === 1 ? "" : "s"}.`);
       return;
     }
 
@@ -726,7 +732,7 @@ const ListingDetail = () => {
                           onSelect={setCheckOut}
                           disabled={(date) => {
                             // 1. Basic checks: Past dates, before check-in, or explicitly disabled
-                            if (date < (checkIn || startOfDay(new Date())) || disabledDates.some(d => d.toDateString() === date.toDateString())) {
+                            if (date < (checkIn || startOfDay(new Date())) || (checkIn && maximumNights > 0 && date > addDays(checkIn, maximumNights)) || disabledDates.some(d => d.toDateString() === date.toDateString())) {
                               return true;
                             }
 
@@ -750,6 +756,11 @@ const ListingDetail = () => {
                       </PopoverContent>
                     </Popover>
                   </div>
+                  {maximumNights > 0 && (
+                    <p className="border-t border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+                      Maximum stay: {maximumNights} night{maximumNights === 1 ? "" : "s"}
+                    </p>
+                  )}
                   <div className="p-3">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-foreground">Guests</span>
                     <div className="mt-1 flex items-center justify-between">

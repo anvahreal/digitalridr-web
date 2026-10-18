@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -125,6 +125,7 @@ const CreateListing = () => {
       bathrooms: 1,
       guests: 2,
       minimum_nights: 1,
+      maximum_nights: "",
       amenities: [] as string[],
       house_rules: "", // Added house rules
       images: [] as string[], // Stores public URLs
@@ -185,6 +186,7 @@ const CreateListing = () => {
             bathrooms: data.bathrooms,
             guests: data.max_guests,
             minimum_nights: data.minimum_nights || 1,
+            maximum_nights: data.maximum_nights || "",
             amenities: data.amenities || [],
             images: data.images || [],
             video_url: data.video_url || "",
@@ -332,6 +334,7 @@ const CreateListing = () => {
         bathrooms: formData.bathrooms,
         max_guests: formData.guests,
         minimum_nights: formData.minimum_nights,
+        maximum_nights: Number(formData.maximum_nights) > 0 ? Number(formData.maximum_nights) : null,
         amenities: formData.amenities,
         house_rules: formData.house_rules.split('\n').filter(r => r.trim() !== ''), // Convert to array
         images: formData.images,
@@ -797,6 +800,13 @@ const CreateListing = () => {
                 <Counter label="Bathrooms" value={formData.bathrooms} onChange={(v) => handleInputChange("bathrooms", v)} />
                 <Counter label="Max Guests" value={formData.guests} onChange={(v) => handleInputChange("guests", v)} />
                 <Counter label="Minimum Nights" value={formData.minimum_nights} onChange={(v) => handleInputChange("minimum_nights", v)} />
+                <FormInput
+                  label="Maximum Nights (optional)"
+                  placeholder="Leave empty for no maximum"
+                  type="number"
+                  value={formData.maximum_nights}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("maximum_nights", e.target.value)}
+                />
               </div>
 
               {/* CHECK-IN INFO (New Section) */}

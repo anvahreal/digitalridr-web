@@ -65,7 +65,7 @@ const sendEmail = async (to: string | undefined, subject: string, html: string) 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "DigitalRidr <onboarding@resend.dev>",
+      from: Deno.env.get("EMAIL_FROM") || "DigitalRidr <onboarding@resend.dev>",
       to: [to],
       subject,
       html,
@@ -124,6 +124,19 @@ const sendBookingConfirmationEmails = async (supabase: ReturnType<typeof createC
        <p><b>Host payout:</b> ${formatNaira(booking.host_payout_amount)}</p>`,
     ),
   ]);
+};
+
+const notifyAdminsOfPaidBooking = async (supabaseUrl: string, serviceRoleKey: string, bookingId?: string) => {
+  if (!bookingId) return;
+  const response = await fetch(`${supabaseUrl}/functions/v1/notify-admins`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ event: "paid_booking", resourceId: bookingId }),
+  });
+  if (!response.ok) console.error("Paid-booking admin alert failed:", await response.text());
 };
 
 serve(async (req) => {
@@ -206,7 +219,10 @@ serve(async (req) => {
     if (!error && data?.success) {
       console.log("Booking confirmed via reference lookup:", JSON.stringify(data));
       if (!data.already_confirmed) {
-        await sendBookingConfirmationEmails(supabase, data.booking_id);
+        await Promise.all([
+          sendBookingConfirmationEmails(supabase, data.booking_id),
+          notifyAdminsOfPaidBooking(supabaseUrl, supabaseServiceRoleKey, data.booking_id),
+        ]);
       }
       return new Response(JSON.stringify({ received: true, data }), {
         status: 200,
@@ -274,16 +290,20 @@ serve(async (req) => {
 
     console.log("Booking created/confirmed via webhook:", JSON.stringify(createdBooking));
     if (!createdBooking.already_confirmed) {
-      await sendBookingConfirmationEmails(supabase, createdBooking.booking_id);
+      await Promise.all([
+        sendBookingConfirmationEmails(supabase, createdBooking.booking_id),
+        notifyAdminsOfPaidBooking(supabaseUrl, supabaseServiceRoleKey, createdBooking.booking_id),
+      ]);
     }
 
     return new Response(JSON.stringify({ received: true, data: createdBooking }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error: any) {
-    console.error("Korapay webhook error:", error.message, error.stack);
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Korapay webhook error:", message, error instanceof Error ? error.stack : undefined);
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

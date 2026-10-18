@@ -11,6 +11,7 @@ export interface Listing {
   bedrooms: number;
   beds: number;
   minimum_nights?: number;
+  maximum_nights?: number | null;
   bathrooms: number;
   images: string[];
   amenities: string[];

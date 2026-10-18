@@ -33,7 +33,7 @@ serve(async (req) => {
         }
 
         const { data, error } = await resend.emails.send({
-            from: "DigitalRidr <onboarding@resend.dev>", // Default Resend testing email. Change this after domain verification.
+            from: Deno.env.get("EMAIL_FROM") || "DigitalRidr <onboarding@resend.dev>",
             to: to,
             subject: subject,
             html: html,

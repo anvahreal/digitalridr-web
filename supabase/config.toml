@@ -1,0 +1,5 @@
+[functions.notify-admins]
+# Normal client requests still validate their JWT inside the function. Turning
+# gateway verification off also permits the database signup trigger to use its
+# separate shared secret.
+verify_jwt = false
