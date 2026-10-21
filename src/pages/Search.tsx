@@ -17,6 +17,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { AMENITIES } from "@/constants/amenities";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 // ... imports
 
@@ -31,6 +32,7 @@ const Search = () => {
   useEffect(() => {
     if (locationParam) {
       setFilters(prev => ({ ...prev, location: locationParam }));
+      trackMetaEvent("Search", { search_string: locationParam });
     }
   }, [locationParam, setFilters]);
 

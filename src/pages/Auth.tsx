@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -56,6 +57,7 @@ const Auth = () => {
         });
         if (error) throw error;
 
+        trackMetaEvent("CompleteRegistration");
         // Success: Redirect to Verification immediately
         // await supabase.auth.signOut(); // Removed to allow auto-login
 

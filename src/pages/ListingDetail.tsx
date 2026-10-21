@@ -38,6 +38,7 @@ import { format, differenceInDays, startOfDay, addDays } from "date-fns";
 import { cn, formatNaira } from "@/lib/utils";
 import { getMapQuery } from "@/constants/locations";
 import { toast } from "sonner";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 const getYoutubeId = (url: string) => {
   if (!url) return null;
@@ -198,6 +199,11 @@ const ListingDetail = () => {
     try {
       const conversationId = await startConversation(listing.host_id, listing.id);
       toast.dismiss(); // Dismiss loading toast
+      trackMetaEvent("Contact", {
+        content_ids: [listing.id],
+        content_name: listing.title,
+        content_type: "product",
+      });
       navigate('/host/messages', { state: { selectedChatId: conversationId } });
     } catch (err) {
       console.error("Contact Host Error:", err);
@@ -207,6 +213,18 @@ const ListingDetail = () => {
   };
 
   const isLiked = listing ? isFavorite(listing.id) : false;
+
+  useEffect(() => {
+    if (!listing) return;
+
+    trackMetaEvent("ViewContent", {
+      content_ids: [listing.id],
+      content_name: listing.title,
+      content_type: "product",
+      currency: "NGN",
+      value: listing.price_per_night,
+    });
+  }, [listing?.id]);
 
   // Fetch blocked dates
   useEffect(() => {
@@ -322,6 +340,14 @@ const ListingDetail = () => {
       checkIn: checkIn.toISOString(),
       checkOut: checkOut.toISOString(),
       guests: guests.toString(),
+    });
+    trackMetaEvent("InitiateCheckout", {
+      content_ids: [listing.id],
+      content_name: listing.title,
+      content_type: "product",
+      currency: "NGN",
+      num_items: 1,
+      value: total,
     });
     toast.success("Redirecting to checkout...");
     navigate(`/checkout?${params.toString()}`);

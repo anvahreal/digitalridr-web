@@ -80,6 +80,11 @@ const PrivacyPolicy = () => {
                         title="5. Data Retention"
                         content="We retain your personal data only for as long as necessary to fulfill the purposes for which it was collected, including for the purposes of satisfying any legal, accounting, or reporting requirements."
                     />
+                    <Section
+                        icon={Eye}
+                        title="6. Analytics and Advertising Cookies"
+                        content="With your permission, we use Meta Pixel to measure website activity, understand how visitors use our services, and show more relevant Digital Ridr advertising. We do not send your name, email address, payment details, or identity-verification information through these events. You can accept, reject, or later change this choice using Cookie settings in the footer."
+                    />
                 </div>
 
                 <div className="p-6 bg-muted/30 rounded-3xl border border-border mt-8">

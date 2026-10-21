@@ -103,6 +103,13 @@ export function Footer() {
             <span className="hidden md:inline">·</span>
             <Link to="/privacy-policy" className="hover:text-foreground">Privacy</Link>
             <Link to="/terms" className="hover:text-foreground">Terms</Link>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("digitalrider:open-cookie-preferences"))}
+              className="hover:text-foreground"
+            >
+              Cookie settings
+            </button>
           </div>
 
           <div className="flex items-center gap-6">

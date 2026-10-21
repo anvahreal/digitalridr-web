@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { BankTransferDetails } from "@/components/BankTransferDetails";
 import { notifyAdmins, sendNotificationEmail } from "@/lib/email";
 import { BANK_DETAILS } from "@/lib/constants";
+import { trackMetaEvent } from "@/lib/metaPixel";
 
 declare global {
   interface Window {
@@ -206,6 +207,15 @@ const Checkout = () => {
         throw new Error(data?.error || error?.message || "Booking creation failed");
       }
 
+      trackMetaEvent("Purchase", {
+        content_ids: [listing.id],
+        content_name: listing.title,
+        content_type: "product",
+        currency: "NGN",
+        num_items: 1,
+        value: total,
+      });
+
       toast.success("Payment confirmed! Your booking is confirmed. 🎉");
       const stayDates = `${format(checkIn, "MMMM d, yyyy")} to ${format(checkOut, "MMMM d, yyyy")}`;
       const guestName = user.full_name || "Guest";
@@ -369,6 +379,14 @@ const Checkout = () => {
       }).select('id').single();
 
       if (error || !booking) throw error || new Error("Failed to create booking");
+
+      trackMetaEvent("Lead", {
+        content_ids: [listing.id],
+        content_name: listing.title,
+        content_type: "product",
+        currency: "NGN",
+        value: total,
+      });
 
       void notifyAdmins("manual_booking", booking.id);
 

@@ -16,6 +16,8 @@ import CreateListing from "./pages/CreateListing";
 import Checkout from "./pages/Checkout";
 import MessagingCenter from "./pages/MessagingCenter";
 import ScrollToTop from "./components/ScrollToTop";
+import MetaPixelPageView from "./components/MetaPixelPageView";
+import AnalyticsConsent from "./components/AnalyticsConsent";
 import AdminDashboard from "./pages/AdminDashboard";
 import TestEmail from "./pages/TestEmail";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -36,7 +38,9 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <AnalyticsConsent />
             <ScrollToTop />
+            <MetaPixelPageView />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
